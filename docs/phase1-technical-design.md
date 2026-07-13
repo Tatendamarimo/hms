@@ -324,17 +324,16 @@ Backend slices 1–8 ≈ 4–5 weeks; frontend overlaps from slice 3. Matches th
 
 ---
 
-## 8. Open Questions — need product-owner answers before build
+## 8. Decisions (resolved with product owner, 2026-07-13)
 
-**Q1 — Appointments.** FRD §2.1 lists simple booking in v1 scope, but §10 Phase 1
-omits it and SMS reminders (its main value) are Phase 3. *Recommendation: defer
-appointments to Phase 3* — walk-in flow doesn't need them; `Encounter.type`
-already reserves the enum value, so nothing is blocked.
+**Q1 — Appointments: deferred to Phase 3.** Built alongside SMS reminders where
+they deliver value. `Encounter.type` reserves the enum value now.
 
-**Q2 — Payment timing default.** The payment-first toggle is designed (§2.2)
-and will be built either way; which default matches the pilot clinic determines
-what we optimise and test hardest.
+**Q2 — Payment timing: pilot clinic collects the consultation fee up front.**
+`payment_before_consultation` defaults to **true**; the check-in → pay → triage
+path is the primary flow for UX polish and testing. Pay-after remains fully
+supported behind the toggle and covered by tests.
 
-**Q3 — Diagnosis list seed.** Clinic's actual top ~100 diagnoses (fast, familiar,
-needs their input) vs an ICD-10 primary-care subset (standard, ~800 codes,
-no waiting). Schema is identical; this is purely a data/UX choice.
+**Q3 — Diagnosis seed: ICD-10 primary-care subset** (~800 codes), seeded by a
+management command in slice 5. Per-clinic "frequently used" pinning noted as a
+Phase 3 UX enhancement, not built now.
