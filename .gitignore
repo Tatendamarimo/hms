@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Django
+backend/staticfiles/
+backend/media/
+db.sqlite3
+
+# Node
+node_modules/
+frontend/dist/
+
+# Env & secrets
+.env
+*.pem
+
+# Backups (never commit patient data)
+backups/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
