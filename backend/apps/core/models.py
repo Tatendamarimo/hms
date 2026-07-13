@@ -124,6 +124,35 @@ class ClinicScopedModel(models.Model):
         abstract = True
 
 
+class ClinicCounter(models.Model):
+    """Per-clinic, gap-free-enough sequence source for MRNs, invoice and
+    receipt numbers. Incremented under row lock inside the caller's
+    transaction — two concurrent registrations can never share a number."""
+
+    clinic = models.ForeignKey("clinics.Clinic", on_delete=models.CASCADE, related_name="+")
+    key = models.CharField(max_length=30)
+    value = models.BigIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["clinic", "key"], name="unique_clinic_counter"),
+        ]
+
+    def __str__(self):
+        return f"{self.clinic_id}:{self.key}={self.value}"
+
+    @classmethod
+    def next_value(cls, clinic, key: str) -> int:
+        from django.db import transaction
+
+        with transaction.atomic():
+            cls.objects.get_or_create(clinic=clinic, key=key)
+            counter = cls.objects.select_for_update().get(clinic=clinic, key=key)
+            counter.value += 1
+            counter.save(update_fields=["value"])
+            return counter.value
+
+
 class AuditedModel(models.Model):
     """Opt-in marker: any concrete subclass has create/update/void mutations
     written to AuditLog automatically (registered in CoreConfig.ready)."""

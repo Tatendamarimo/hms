@@ -2,8 +2,13 @@
 impossible: every Phase 1+ viewset over clinic data inherits this mixin."""
 
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.pagination import CursorPagination
 
 ACTIVE_CLINIC_SESSION_KEY = "active_clinic_id"
+
+
+class DefaultCursorPagination(CursorPagination):
+    ordering = "-created_at"
 
 
 def get_active_clinic(request):
