@@ -10,6 +10,7 @@ api_v1 = [
     path("billing/", include("apps.billing.urls")),
     path("", include("apps.patients.urls")),
     path("", include("apps.encounters.urls")),
+    path("", include("apps.clinical.urls")),
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path("schema/swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
 ]
