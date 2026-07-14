@@ -310,7 +310,7 @@ shape → field errors). No client-side-only validation of anything clinical.
 |---|---|---|
 | 1 | Billing foundations | ClinicCounter, ServiceItem/ServicePrice, catalog admin + seed command |
 | 2 | Patients | Patient + MRN, allergies/conditions, search, dedupe-409, consent, summary endpoint |
-| 3 | Encounters | state machine, queue API, clinic settings (payment-first, skip-triage) |
+| 3 | Encounters | state machine, queue API, clinic settings (payment-first, skip-triage). *Resequenced (consequence of decision Q2):* minimal Invoice/InvoiceItem/Payment models + check-in fee flow moved here from slice 7, because the payment-first guard needs them; slice 7 keeps discounts, reversals, manual items | 
 | 4 | Vitals | model, flagging, auto-transition |
 | 5 | Consultations | draft/sign/amend, diagnoses, break-glass, read-audit wiring |
 | 6 | Orders & printables | prescriptions + allergy guard, minimal Medication + LabOrder, sick note, referral, all print views |

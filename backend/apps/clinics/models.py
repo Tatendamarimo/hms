@@ -3,6 +3,20 @@ from django.db import models
 
 from apps.core.models import AuditedModel, TimeStampedModel
 
+# Defaults live in code so a clinic row only stores overrides (design §2.2).
+# payment_before_consultation=True is the pilot default (design §8, Q2).
+CLINIC_SETTING_DEFAULTS = {
+    "payment_before_consultation": True,
+    "allow_skip_triage": False,
+    "vitals_reference_ranges": {
+        "systolic": {"low": 90, "high": 140},
+        "diastolic": {"low": 60, "high": 90},
+        "pulse": {"low": 50, "high": 100},
+        "temperature": {"low": 35.0, "high": 38.0},
+        "spo2": {"low": 92, "high": 100},
+    },
+}
+
 
 class Clinic(AuditedModel, TimeStampedModel):
     """A tenant. Every business record in the system belongs to exactly one
@@ -14,12 +28,18 @@ class Clinic(AuditedModel, TimeStampedModel):
     address = models.TextField(blank=True)
     phone = models.CharField(max_length=30, blank=True)
     is_active = models.BooleanField(default=True)
+    settings = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["name"]
 
     def __str__(self):
         return self.name
+
+    def get_setting(self, key):
+        if key not in CLINIC_SETTING_DEFAULTS:
+            raise KeyError(f"Unknown clinic setting '{key}'")
+        return self.settings.get(key, CLINIC_SETTING_DEFAULTS[key])
 
 
 class ClinicMembership(AuditedModel, TimeStampedModel):

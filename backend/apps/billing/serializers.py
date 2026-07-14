@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import ServiceItem, ServicePrice
+from .models import Invoice, InvoiceItem, Payment, ServiceItem, ServicePrice
 
 
 class ServiceItemSerializer(serializers.ModelSerializer):
@@ -36,3 +36,42 @@ class ServicePriceSerializer(serializers.ModelSerializer):
                 "choose a different effective date."
             )
         return attrs
+
+
+class InvoiceItemSerializer(serializers.ModelSerializer):
+    line_total = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = InvoiceItem
+        fields = [
+            "id", "description", "quantity", "unit_price", "line_total",
+            "item_type", "service_item", "created_at",
+        ]
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    received_by_name = serializers.CharField(source="received_by.get_full_name", read_only=True)
+
+    class Meta:
+        model = Payment
+        fields = [
+            "id", "amount", "method", "reference", "receipt_number",
+            "received_by_name", "created_at",
+        ]
+        read_only_fields = ["receipt_number", "created_at"]
+
+
+class InvoiceSerializer(serializers.ModelSerializer):
+    items = InvoiceItemSerializer(many=True, read_only=True)
+    payments = PaymentSerializer(many=True, read_only=True)
+    total = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    paid_total = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    balance = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    status = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = Invoice
+        fields = [
+            "id", "number", "encounter", "issued_at",
+            "total", "paid_total", "balance", "status", "items", "payments",
+        ]
