@@ -134,7 +134,9 @@ Lifecycle rules (enforced in model + serializer, not just UI):
 2. Draft: editable **by its author only**.
 3. `sign`: sets signed_at, freezes the record — any later save attempt raises.
    Typed name + timestamp + audit entry = the FRD's v1 e-signature. Signing
-   transitions the encounter and appends the consultation invoice line.
+   transitions the encounter (only when it is currently in consultation).
+   *Amended:* signing never touches the invoice — the consultation fee is
+   billed at check-in in both payment modes (see ADR-0002).
 4. `amend`: creates a **new** Consultation (`amended_from=old, version=old+1`,
    copy of fields, status draft). Old record stays visible, marked "amended".
    Printables always render the latest signed version with an amendment notice.

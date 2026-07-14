@@ -10,10 +10,10 @@ approved designs are recorded in `docs/adr/`.
 core        ← everyone (base models, audit, permissions, clinic scoping, counters)
 clinics     ← accounts, and every ClinicScopedModel (tenancy)
 accounts    ← views everywhere (roles module), user FKs via settings.AUTH_USER_MODEL
-patients    ← encounters, clinical*
-encounters  ← clinical*, billing (Invoice.encounter FK — by string reference only)
+patients    ← encounters, clinical
+encounters  ← clinical, billing (Invoice.encounter FK — by string reference only)
 billing     ← (called BY encounters through apps.billing.services only)
-clinical*   (slice 5+)
+clinical    → encounters (FK + state transition via encounters.services), patients (reads)
 ```
 
 **Boundary rules (enforced in review):**
@@ -46,6 +46,13 @@ clinical*   (slice 5+)
   counters, doctor claim, payment recording, vitals + auto-transition.
 - Clinical computations snapshot their inputs (ADR-0001): vitals store applied
   ranges + flags; invoice items store unit_price.
+- Signed consultations are immutable at the MODEL layer
+  (`Consultation.save()` raises except for void fields); corrections are
+  versioned amendments chained by a OneToOne `amended_from`. Clinical actions
+  never mutate billing (ADR-0002).
+- Break-glass (core/break_glass.py): Admin clinical access is session-scoped
+  per patient, read-only, 15-minute expiry, announced by a BREAK_GLASS audit
+  entry; reads under a grant are flagged in the audit log.
 - Auditing: every mutation of an `AuditedModel` is logged automatically with
   before/after diffs; clinical READS are logged via `log_read`/`AuditedReadMixin`;
   privileged overrides (duplicate-override, transition reasons) write explicit

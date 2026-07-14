@@ -4,6 +4,21 @@ All notable changes to HMS. Dates are UTC.
 
 ## [Unreleased] — Phase 1 in progress
 
+### 2026-07-14 — Slice 5: Consultations, ICD-10, break-glass
+- Consultation lifecycle: draft (claim-holder only) → sign (row-locked,
+  content required, author only) → versioned amendments with mandatory reason;
+  OneToOne amended_from chain makes double-amendment impossible at the DB
+- Signed consultations immutable at the model layer; void = retraction only
+- **ADR-0002:** signing never mutates the invoice — consult fees originate at
+  check-in (regression-tested)
+- ICD-10 diagnosis catalog (bundled ~46-code primary-care subset,
+  seed_diagnoses, expandable by data file swap); coded and/or free-text
+  diagnoses per consultation, draft-only editing with audited removals
+- Break-glass: Admin-only, reason-mandatory, patient-scoped, read-only,
+  15-min session grants; BREAK_GLASS audit action; all reads under a grant
+  flagged; wired into summary/timeline/vitals/consultation reads
+- Consultation reads audited for doctors too
+
 ### 2026-07-14 — Slice 4: Triage vitals
 - Vitals recorded against encounters (never patients) by nurses only
 - Server-side plausibility validation (typo-rejection) distinct from
