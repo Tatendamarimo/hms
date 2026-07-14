@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from apps.accounts import roles
 from apps.core.api import ClinicScopedViewSetMixin, get_active_clinic
 from apps.core.audit import log_read
+from apps.core.break_glass import has_active_grant
 from apps.core.permissions import RolePermission
 from apps.patients.models import Patient
 
@@ -27,6 +28,17 @@ QUEUE_ROLES = [
 ]
 
 
+def clinical_read_access(request, patient_pk) -> tuple[bool, bool]:
+    """(allowed, via_break_glass) — Nurse/Doctor by role; Admin read-only
+    under an active break-glass grant."""
+    user_roles = set(request.user.role_names)
+    if user_roles & {roles.NURSE, roles.DOCTOR}:
+        return True, False
+    if roles.ADMIN in user_roles and has_active_grant(request, patient_pk):
+        return True, True
+    return False, False
+
+
 class EncounterViewSet(
     ClinicScopedViewSetMixin,
     mixins.ListModelMixin,
@@ -44,7 +56,8 @@ class EncounterViewSet(
         "retrieve": QUEUE_ROLES,
         "queue": QUEUE_ROLES,
         "transition": QUEUE_ROLES,  # fine-grained per-edge enforcement in the state machine
-        "vitals": [roles.NURSE, roles.DOCTOR],  # POST further restricted to Nurse in-action
+        # GET also serves Admin under break-glass; POST restricted to Nurse in-action
+        "vitals": [roles.NURSE, roles.DOCTOR, roles.ADMIN],
         "void_vitals": [roles.NURSE, roles.DOCTOR],
     }
 
@@ -102,7 +115,13 @@ class EncounterViewSet(
     def vitals(self, request, pk=None):
         encounter = self.get_object()
         if request.method == "GET":
-            log_read(request.user, encounter)  # clinical data — reads are audited
+            allowed, via_break_glass = clinical_read_access(request, encounter.patient_id)
+            if not allowed:
+                return Response(
+                    {"detail": "Break-glass access required."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            log_read(request.user, encounter, via_break_glass=via_break_glass)
             return Response(
                 VitalsSerializer(encounter.vitals.all(), many=True).data
             )
@@ -139,13 +158,18 @@ class PatientTimelineView(APIView):
     stays encounters → patients. Reads of a patient's history are audited."""
 
     permission_classes = [RolePermission]
-    role_map = {"get": [roles.NURSE, roles.DOCTOR]}
+    role_map = {"get": [roles.NURSE, roles.DOCTOR, roles.ADMIN]}
 
     def get(self, request, pk):
         patient = get_object_or_404(
             Patient.objects.filter(clinic=get_active_clinic(request)), pk=pk
         )
-        log_read(request.user, patient)
+        allowed, via_break_glass = clinical_read_access(request, patient.pk)
+        if not allowed:
+            return Response(
+                {"detail": "Break-glass access required."}, status=status.HTTP_403_FORBIDDEN
+            )
+        log_read(request.user, patient, via_break_glass=via_break_glass)
         visits = (
             Encounter.objects.filter(patient=patient)
             .select_related("assigned_doctor", "patient")

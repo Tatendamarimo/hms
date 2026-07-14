@@ -106,8 +106,10 @@ def _on_post_save(sender, instance, created, **kwargs):
     _write(action, instance, diff)
 
 
-def log_read(user, instance, *, ip_address=None):
-    """Audit a read of a clinical record (FRD §5.10: reads are logged too)."""
+def log_read(user, instance, *, ip_address=None, via_break_glass=False):
+    """Audit a read of a clinical record (FRD §5.10: reads are logged too).
+    Reads performed under a break-glass grant are flagged so they stand out
+    in audit review."""
     from .models import AuditLog
 
     actor = get_actor()
@@ -118,6 +120,7 @@ def log_read(user, instance, *, ip_address=None):
         model_label=instance._meta.label,
         object_pk=str(instance.pk or ""),
         object_repr=str(instance)[:255],
+        changes={"break_glass": True} if via_break_glass else {},
         ip_address=ip_address or (actor.ip_address if actor else None),
     )
 

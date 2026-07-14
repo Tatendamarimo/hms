@@ -178,6 +178,7 @@ class AuditLog(models.Model):
         LOGIN = "login"
         LOGOUT = "logout"
         LOGIN_FAILED = "login_failed"
+        BREAK_GLASS = "break_glass"
 
     at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
     user = models.ForeignKey(

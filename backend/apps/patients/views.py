@@ -1,10 +1,14 @@
 from django.db.models import Q
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.accounts import roles
 from apps.core.api import ClinicScopedViewSetMixin, get_active_clinic
+from apps.core.audit import log_read
+from apps.core.break_glass import grant_access, has_active_grant
 from apps.core.models import AuditLog
 from apps.core.permissions import RolePermission
 
@@ -20,6 +24,17 @@ from .services import find_duplicate_candidates, register_patient
 
 FRONT_DESK = [roles.RECEPTIONIST, roles.NURSE, roles.DOCTOR, roles.CASHIER]
 CLINICAL = [roles.NURSE, roles.DOCTOR]
+
+
+def clinical_read_access(request, patient_pk) -> tuple[bool, bool]:
+    """(allowed, via_break_glass): clinical roles by right; Admin read-only
+    under an active break-glass grant (design: minimal scope, 15 min)."""
+    user_roles = set(request.user.role_names)
+    if user_roles & set(CLINICAL):
+        return True, False
+    if roles.ADMIN in user_roles and has_active_grant(request, patient_pk):
+        return True, True
+    return False, False
 
 
 class PatientViewSet(
@@ -43,7 +58,7 @@ class PatientViewSet(
         "search": FRONT_DESK,
         "update": [roles.RECEPTIONIST],
         "partial_update": [roles.RECEPTIONIST],
-        "summary": CLINICAL,
+        "summary": [*CLINICAL, roles.ADMIN],
         "allergies": CLINICAL,
         "void_allergy": CLINICAL,
         "conditions": CLINICAL,
@@ -120,6 +135,12 @@ class PatientViewSet(
     @action(detail=True)
     def summary(self, request, pk=None):
         patient = self.get_object()
+        allowed, via_break_glass = clinical_read_access(request, patient.pk)
+        if not allowed:
+            return Response(
+                {"detail": "Break-glass access required."}, status=status.HTTP_403_FORBIDDEN
+            )
+        log_read(request.user, patient, via_break_glass=via_break_glass)
         return Response(PatientSummarySerializer(patient).data)
 
     # --- Allergies & conditions: add and void only, never edit (design §2.1) ---
@@ -168,3 +189,31 @@ class PatientViewSet(
         except ValueError as exc:
             return Response({"reason": [str(exc)]}, status=status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class BreakGlassView(APIView):
+    """Admin-only emergency access grant (FRD §3/§5.10): explicit reason,
+    prominent audit entry, one patient, read-only, 15-minute expiry."""
+
+    permission_classes = [RolePermission]
+    role_map = {"post": [roles.ADMIN]}
+
+    def post(self, request):
+        clinic = get_active_clinic(request)
+        patient = get_object_or_404(
+            Patient.objects.filter(clinic=clinic), pk=request.data.get("patient")
+        )
+        try:
+            expires_at = grant_access(
+                request,
+                clinic=clinic,
+                patient_pk=patient.pk,
+                patient_repr=str(patient),
+                reason=request.data.get("reason", ""),
+            )
+        except ValueError as exc:
+            return Response({"reason": [str(exc)]}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"patient": patient.pk, "expires_at": expires_at.isoformat()},
+            status=status.HTTP_201_CREATED,
+        )
