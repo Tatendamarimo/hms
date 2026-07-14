@@ -68,3 +68,29 @@ class Encounter(AuditedModel, ClinicScopedModel, SoftDeleteModel, TimeStampedMod
     @property
     def is_open(self) -> bool:
         return self.status in self.OPEN_STATUSES
+
+
+class Vitals(AuditedModel, ClinicScopedModel, SoftDeleteModel, TimeStampedModel):
+    """Triage measurements for ONE visit (FRD: vitals attach to the encounter,
+    never the patient). applied_ranges + flags are snapshotted at creation
+    (ADR-0001): later threshold changes never re-colour history. Corrections
+    are void + re-enter — rows are immutable once written."""
+
+    encounter = models.ForeignKey(Encounter, on_delete=models.PROTECT, related_name="vitals")
+    systolic = models.PositiveSmallIntegerField()
+    diastolic = models.PositiveSmallIntegerField()
+    pulse = models.PositiveSmallIntegerField()
+    temperature = models.DecimalField(max_digits=4, decimal_places=1)
+    weight_kg = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    height_cm = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    spo2 = models.PositiveSmallIntegerField(null=True, blank=True)
+    symptoms = models.TextField(blank=True)
+    applied_ranges = models.JSONField(editable=False)
+    flags = models.JSONField(default=list, editable=False)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name_plural = "vitals"
+
+    def __str__(self):
+        return f"Vitals {self.systolic}/{self.diastolic} for encounter #{self.encounter_id}"

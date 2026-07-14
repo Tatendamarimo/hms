@@ -12,11 +12,12 @@ from apps.core.permissions import RolePermission
 from apps.patients.models import Patient
 
 from . import services
-from .models import Encounter
+from .models import Encounter, Vitals
 from .serializers import (
     EncounterCreateSerializer,
     EncounterSerializer,
     TransitionSerializer,
+    VitalsSerializer,
 )
 from .state_machine import GuardFailed, IllegalTransition, TransitionForbidden
 
@@ -43,6 +44,8 @@ class EncounterViewSet(
         "retrieve": QUEUE_ROLES,
         "queue": QUEUE_ROLES,
         "transition": QUEUE_ROLES,  # fine-grained per-edge enforcement in the state machine
+        "vitals": [roles.NURSE, roles.DOCTOR],  # POST further restricted to Nurse in-action
+        "void_vitals": [roles.NURSE, roles.DOCTOR],
     }
 
     def create(self, request, *args, **kwargs):
@@ -94,6 +97,40 @@ class EncounterViewSet(
         except GuardFailed as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(EncounterSerializer(encounter).data)
+
+    @action(detail=True, methods=["get", "post"])
+    def vitals(self, request, pk=None):
+        encounter = self.get_object()
+        if request.method == "GET":
+            log_read(request.user, encounter)  # clinical data — reads are audited
+            return Response(
+                VitalsSerializer(encounter.vitals.all(), many=True).data
+            )
+
+        # Recording is Nurse work (FRD §3); doctors read, they don't enter triage data
+        if roles.NURSE not in request.user.role_names:
+            return Response(
+                {"detail": "Only nurses record vitals."}, status=status.HTTP_403_FORBIDDEN
+            )
+        serializer = VitalsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        vitals = services.record_vitals(
+            encounter, recorded_by=request.user, **serializer.validated_data
+        )
+        return Response(VitalsSerializer(vitals).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path=r"vitals/(?P<item_pk>\d+)/void")
+    def void_vitals(self, request, pk=None, item_pk=None):
+        encounter = self.get_object()
+        try:
+            vitals = Vitals.objects.get(pk=item_pk, encounter=encounter)
+        except Vitals.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        try:
+            vitals.void(by=request.user, reason=request.data.get("reason", ""))
+        except ValueError as exc:
+            return Response({"reason": [str(exc)]}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class PatientTimelineView(APIView):

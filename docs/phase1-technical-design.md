@@ -116,10 +116,12 @@ encounter FK (never patient directly — FRD) · systolic + diastolic (separate 
 required for flagging) · pulse · temperature · weight_kg · height_cm · spo2 nullable ·
 symptoms text · recorded_by.
 
-Flagging is computed server-side against the clinic's reference ranges and returned
-as `flags: [{field, value, range, severity}]` — **never stored** (ranges change;
-stored flags would lie about history). Serializer + shared range config; UI renders
-red/amber.
+Flagging is computed server-side against the clinic's reference ranges at
+creation, and **both the applied ranges and the computed flags are snapshotted
+onto the record** so historical entries keep meaning what they meant at the
+time of care — threshold changes affect future recordings only. *(Amended from
+the original "never stored" design — see ADR-0001.)* UI renders red/amber from
+the stored flags.
 
 ### 2.4 Clinical app (`apps.clinical`)
 

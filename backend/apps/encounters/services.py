@@ -4,8 +4,15 @@ from rest_framework.exceptions import ValidationError
 
 from apps.core.models import AuditLog
 
-from .models import Encounter
+from .models import Encounter, Vitals
 from .state_machine import TransitionForbidden, get_rule
+from .vitals_rules import compute_flags, implausible_fields
+
+VITALS_RECORDABLE_STATUSES = (
+    Encounter.Status.IN_TRIAGE,
+    Encounter.Status.AWAITING_DOCTOR,
+    Encounter.Status.IN_CONSULTATION,
+)
 
 
 def open_encounter(*, clinic, patient, opened_by, type, notes="", checkin_service=None):
@@ -85,3 +92,39 @@ def transition(encounter, *, to, user, reason=""):
                 changes={"transition_reason": reason.strip(), "to": to},
             )
     return locked
+
+
+def record_vitals(encounter, *, recorded_by, **measurements) -> Vitals:
+    """Records triage vitals under the encounter row lock (a concurrent close
+    cannot race the save), snapshots the clinic's reference ranges and the
+    computed flags (ADR-0001), and auto-advances in_triage -> awaiting_doctor
+    through the state machine — never by writing status directly."""
+    errors = implausible_fields(measurements)
+    if errors:
+        raise ValidationError(errors)
+
+    with transaction.atomic():
+        locked = Encounter.objects.select_for_update().get(pk=encounter.pk)
+        if locked.status not in VITALS_RECORDABLE_STATUSES:
+            if locked.status == Encounter.Status.WAITING:
+                raise ValidationError(
+                    {"detail": "Start triage before recording vitals."}
+                )
+            raise ValidationError(
+                {"detail": f"Vitals cannot be recorded on a '{locked.status}' visit."}
+            )
+
+        ranges = locked.clinic.get_setting("vitals_reference_ranges")
+        vitals = Vitals.objects.create(
+            clinic=locked.clinic,
+            encounter=locked,
+            created_by=recorded_by,
+            applied_ranges=ranges,
+            flags=compute_flags(measurements, ranges),
+            **measurements,
+        )
+
+        if locked.status == Encounter.Status.IN_TRIAGE:
+            transition(locked, to=Encounter.Status.AWAITING_DOCTOR, user=recorded_by)
+
+    return vitals

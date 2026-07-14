@@ -4,7 +4,7 @@ from rest_framework import serializers
 from apps.billing.models import ServiceItem
 from apps.patients.models import Patient
 
-from .models import Encounter
+from .models import Encounter, Vitals
 
 
 class EncounterSerializer(serializers.ModelSerializer):
@@ -58,3 +58,19 @@ class EncounterCreateSerializer(serializers.Serializer):
 class TransitionSerializer(serializers.Serializer):
     to = serializers.ChoiceField(choices=Encounter.Status.choices)
     reason = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class VitalsSerializer(serializers.ModelSerializer):
+    recorded_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Vitals
+        fields = [
+            "id", "systolic", "diastolic", "pulse", "temperature",
+            "weight_kg", "height_cm", "spo2", "symptoms",
+            "flags", "applied_ranges", "recorded_by_name", "created_at",
+        ]
+        read_only_fields = ["flags", "applied_ranges", "created_at"]
+
+    def get_recorded_by_name(self, obj) -> str | None:
+        return str(obj.created_by) if obj.created_by else None
