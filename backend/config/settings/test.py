@@ -1,10 +1,11 @@
-import os
-
 from .base import *  # noqa
 
-# CI provides DATABASE_URL pointing at Postgres; local test runs without one
-# fall back to SQLite so the suite runs with zero infrastructure.
-if not os.environ.get("DATABASE_URL"):
+# CI (or a manual Postgres run) exports DATABASE_URL explicitly; local test
+# runs without one fall back to SQLite so the suite runs with zero
+# infrastructure. A DATABASE_URL that only comes from the repo .env file does
+# NOT count — read_env() copies it into os.environ, which used to defeat this
+# fallback whenever a .env existed.
+if not DATABASE_URL_EXPLICIT:  # noqa: F405
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",

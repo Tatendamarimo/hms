@@ -1,5 +1,6 @@
 """Base settings shared by all environments. Environment-specific modules override."""
 
+import os
 from pathlib import Path
 
 import environ
@@ -7,6 +8,10 @@ import environ
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 env = environ.Env()
+# Recorded before read_env(), which copies .env values into os.environ —
+# lets test settings tell an explicitly exported DATABASE_URL (CI) apart
+# from one merely present in the local .env file.
+DATABASE_URL_EXPLICIT = "DATABASE_URL" in os.environ
 # .env lives at the repo root, one level above backend/
 environ.Env.read_env(BASE_DIR.parent / ".env")
 
