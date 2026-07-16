@@ -35,9 +35,12 @@ def ensure_invoice(encounter, *, created_by) -> Invoice:
         )
 
 
-def add_service_line(invoice, *, service_item, created_by, quantity=1) -> InvoiceItem:
+def add_service_line(
+    invoice, *, service_item, created_by, quantity=1, lab_order=None
+) -> InvoiceItem:
     """Price is snapshotted from the current ServicePrice — no free-text
-    amounts anywhere in the system (design §2.5)."""
+    amounts anywhere in the system (design §2.5). `lab_order` links the line
+    to its source record when the charge originates from an order."""
     price = service_item.current_price()
     if price is None:
         raise BillingError(
@@ -48,11 +51,21 @@ def add_service_line(invoice, *, service_item, created_by, quantity=1) -> Invoic
         clinic=invoice.clinic,
         invoice=invoice,
         service_item=service_item,
+        lab_order=lab_order,
         description=service_item.name,
         quantity=quantity,
         unit_price=price,
         created_by=created_by,
     )
+
+
+def void_lines_for_lab_order(lab_order, *, by, reason: str) -> int:
+    """Cancelling an order retracts its charges (design §2.4/slice 6)."""
+    count = 0
+    for item in InvoiceItem.objects.filter(lab_order=lab_order):
+        item.void(by=by, reason=reason)
+        count += 1
+    return count
 
 
 def record_payment(invoice, *, amount, method, received_by, reference="") -> Payment:

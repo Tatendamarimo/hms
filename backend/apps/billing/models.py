@@ -128,6 +128,11 @@ class InvoiceItem(AuditedModel, ClinicScopedModel, SoftDeleteModel, TimeStampedM
     service_item = models.ForeignKey(
         ServiceItem, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
     )
+    # Source links (design §2.5): every line points at what earned it.
+    lab_order = models.ForeignKey(
+        "laboratory.LabOrder", null=True, blank=True, on_delete=models.PROTECT,
+        related_name="invoice_items",
+    )
     description = models.CharField(max_length=255)
     quantity = models.PositiveIntegerField(default=1)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
