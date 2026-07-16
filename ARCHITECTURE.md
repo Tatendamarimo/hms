@@ -7,13 +7,17 @@ approved designs are recorded in `docs/adr/`.
 ## Apps and dependency directions
 
 ```
-core        ← everyone (base models, audit, permissions, clinic scoping, counters)
+core        ← everyone (base models, audit, permissions, clinic scoping, counters, print plumbing)
 clinics     ← accounts, and every ClinicScopedModel (tenancy)
 accounts    ← views everywhere (roles module), user FKs via settings.AUTH_USER_MODEL
 patients    ← encounters, clinical
 encounters  ← clinical, billing (Invoice.encounter FK — by string reference only)
-billing     ← (called BY encounters through apps.billing.services only)
-clinical    → encounters (FK + state transition via encounters.services), patients (reads)
+billing     ← (called BY encounters and laboratory through apps.billing.services only)
+clinical    → encounters (FK + state transition via encounters.services), patients (reads),
+              pharmacy (Medication FK on PrescriptionItem)
+pharmacy    ← clinical (leaf app: Medication picklist only, no stock)
+laboratory  → clinical (consultation FK + document-window/author rules),
+              billing (ensure_invoice/add_service_line/void_lines_for_lab_order)
 ```
 
 **Boundary rules (enforced in review):**
@@ -43,9 +47,20 @@ clinical    → encounters (FK + state transition via encounters.services), pati
   (`state_machine.py`, `vitals_rules.py`); serializers validate transport,
   views translate exceptions to HTTP.
 - Concurrency-sensitive operations take a row lock (`select_for_update`):
-  counters, doctor claim, payment recording, vitals + auto-transition.
+  counters, doctor claim, payment recording, vitals + auto-transition,
+  consultation sign/amend, prescription + lab-order cancellation.
 - Clinical computations snapshot their inputs (ADR-0001): vitals store applied
-  ranges + flags; invoice items store unit_price.
+  ranges + flags; invoice items and lab-order items store unit prices.
+- Printables (`/print/…`, outside `/api/v1/`) are server-rendered HTML built
+  only from stored rows — no recomputation at print time, so a document prints
+  the same tomorrow as today (plus a printed-by/-at footer). Every print view
+  is wrapped by `core.printing.print_view(roles)` (session + role + active
+  clinic); prints of clinical documents also write a `log_read` audit entry.
+- Clinical documents (prescription, sick note, referral, lab order) attach to
+  the **author's** consultation — draft or signed — only while the visit is
+  open (`require_open_document_window`); cancellation is status-flip +
+  reason, never deletion, and lab-order cancellation voids its linked
+  invoice lines through `billing.services`.
 - Signed consultations are immutable at the MODEL layer
   (`Consultation.save()` raises except for void fields); corrections are
   versioned amendments chained by a OneToOne `amended_from`. Clinical actions

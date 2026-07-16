@@ -4,6 +4,27 @@ All notable changes to HMS. Dates are UTC.
 
 ## [Unreleased] — Phase 1 in progress
 
+### 2026-07-16 — Slice 6: Orders & printables
+- Prescriptions (coded Medication FK or free-text item, DB check enforces one
+  or the other): issue on the author's consultation (draft or signed) while
+  the visit is open; cancel with mandatory reason under row lock
+- Allergy guard: substring match of prescription items against documented
+  allergies → 409 with details; prescribe-anyway requires explicit
+  acknowledgement and writes a loud audit entry (FRD §5.3)
+- Minimal Medication catalog (`apps.pharmacy`, no stock) with doctor picklist
+- Lab/imaging orders (`apps.laboratory`): author-only, priced-services-only,
+  price snapshotted per item; ordering appends linked invoice lines, cancel
+  voids them with the reason (refunds arrive with slice 7 reversals);
+  duplicate service in one order rejected (double-billing guard)
+- Sick notes (date-range validated) and referral letters
+- Print views under `/print/` (session + role + clinic gated, server-rendered):
+  prescription, sick note, referral, lab request, registration (demographics
+  only), invoice, receipt; clinical prints are read-audited
+- `InvoiceItem.lab_order` source link; `add_service_line` accepts the link
+- Fixed: test settings' SQLite fallback was dead code whenever a repo `.env`
+  existed (read_env exports DATABASE_URL into os.environ) — Postgres now only
+  used when DATABASE_URL is exported explicitly (CI/manual)
+
 ### 2026-07-14 — Slice 5: Consultations, ICD-10, break-glass
 - Consultation lifecycle: draft (claim-holder only) → sign (row-locked,
   content required, author only) → versioned amendments with mandatory reason;
