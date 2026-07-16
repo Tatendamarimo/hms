@@ -12,7 +12,7 @@ from apps.core.permissions import RolePermission
 from apps.encounters.models import Encounter
 
 from . import services
-from .models import Consultation, Diagnosis
+from .models import Consultation, Diagnosis, Prescription
 from .serializers import (
     AddDiagnosisSerializer,
     AmendSerializer,
@@ -20,6 +20,10 @@ from .serializers import (
     ConsultationEditSerializer,
     ConsultationSerializer,
     DiagnosisSerializer,
+    PrescriptionCreateSerializer,
+    PrescriptionSerializer,
+    ReferralSerializer,
+    SickNoteSerializer,
 )
 
 
@@ -109,6 +113,9 @@ class ConsultationViewSet(
         "amend": [roles.DOCTOR],
         "diagnoses": [roles.DOCTOR],
         "remove_diagnosis": [roles.DOCTOR],
+        "prescriptions": [roles.DOCTOR],
+        "sick_notes": [roles.DOCTOR],
+        "referrals": [roles.DOCTOR],
     }
 
     def retrieve(self, request, *args, **kwargs):
@@ -175,3 +182,69 @@ class ConsultationViewSet(
         except (services.ConsultationStateError, services.ConsultationPermissionError) as exc:
             return _translate(exc)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post"])
+    def prescriptions(self, request, pk=None):
+        serializer = PrescriptionCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            prescription = services.create_prescription(
+                self.get_object(),
+                by=request.user,
+                items=serializer.validated_data["items"],
+                acknowledged_allergy_ids=serializer.validated_data["acknowledged_allergy_ids"],
+            )
+        except services.AllergyWarning as exc:
+            return Response(
+                {
+                    "detail": str(exc),
+                    "allergy_warnings": exc.warnings,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+        except (services.ConsultationStateError, services.ConsultationPermissionError) as exc:
+            return _translate(exc)
+        return Response(
+            PrescriptionSerializer(prescription).data, status=status.HTTP_201_CREATED
+        )
+
+    @action(detail=True, methods=["post"], url_path="sick-notes")
+    def sick_notes(self, request, pk=None):
+        serializer = SickNoteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            note = services.create_sick_note(
+                self.get_object(), by=request.user, **serializer.validated_data
+            )
+        except (services.ConsultationStateError, services.ConsultationPermissionError) as exc:
+            return _translate(exc)
+        return Response(SickNoteSerializer(note).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"])
+    def referrals(self, request, pk=None):
+        serializer = ReferralSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            referral = services.create_referral(
+                self.get_object(), by=request.user, **serializer.validated_data
+            )
+        except (services.ConsultationStateError, services.ConsultationPermissionError) as exc:
+            return _translate(exc)
+        return Response(ReferralSerializer(referral).data, status=status.HTTP_201_CREATED)
+
+
+class PrescriptionViewSet(ClinicScopedViewSetMixin, viewsets.GenericViewSet):
+    queryset = Prescription.objects.select_related("consultation")
+    serializer_class = PrescriptionSerializer
+    permission_classes = [RolePermission]
+    role_map = {"cancel": [roles.DOCTOR]}
+
+    @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        try:
+            prescription = services.cancel_prescription(
+                self.get_object(), by=request.user, reason=request.data.get("reason", "")
+            )
+        except (services.ConsultationStateError, services.ConsultationPermissionError) as exc:
+            return _translate(exc)
+        return Response(PrescriptionSerializer(prescription).data)

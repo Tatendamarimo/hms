@@ -98,6 +98,80 @@ class Consultation(AuditedModel, ClinicScopedModel, SoftDeleteModel, TimeStamped
         return type(self).all_objects.filter(amended_from=self).exists()
 
 
+class Prescription(AuditedModel, ClinicScopedModel, SoftDeleteModel, TimeStampedModel):
+    """A prescription document issued from a consultation. Cancellation flips
+    status (audited with reason); the record itself is never edited."""
+
+    class Status(models.TextChoices):
+        ISSUED = "issued"
+        CANCELLED = "cancelled"
+
+    consultation = models.ForeignKey(
+        Consultation, on_delete=models.PROTECT, related_name="prescriptions"
+    )
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ISSUED)
+
+    def __str__(self):
+        return f"Prescription #{self.pk} ({self.status})"
+
+
+class PrescriptionItem(AuditedModel, ClinicScopedModel, TimeStampedModel):
+    """Coded medication, or an explicit free-text fallback when the picklist
+    lacks the drug (the fallback is the Admin's signal to grow the catalog)."""
+
+    prescription = models.ForeignKey(
+        Prescription, on_delete=models.CASCADE, related_name="items"
+    )
+    medication = models.ForeignKey(
+        "pharmacy.Medication", null=True, blank=True, on_delete=models.PROTECT,
+        related_name="+",
+    )
+    medication_note = models.CharField(max_length=200, blank=True)
+    dose = models.CharField(max_length=100)
+    frequency = models.CharField(max_length=100)
+    duration_days = models.PositiveSmallIntegerField()
+    quantity = models.PositiveSmallIntegerField()
+    instructions = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(medication__isnull=False) | ~models.Q(medication_note=""),
+                name="prescription_item_coded_or_note",
+            ),
+        ]
+
+    def __str__(self):
+        return str(self.medication) if self.medication else self.medication_note
+
+    @property
+    def display_name(self) -> str:
+        return str(self.medication) if self.medication else self.medication_note
+
+
+class SickNote(AuditedModel, ClinicScopedModel, SoftDeleteModel, TimeStampedModel):
+    consultation = models.ForeignKey(
+        Consultation, on_delete=models.PROTECT, related_name="sick_notes"
+    )
+    unfit_from = models.DateField()
+    unfit_to = models.DateField()
+    remarks = models.CharField(max_length=255, blank=True)
+
+    def __str__(self):
+        return f"Sick note {self.unfit_from} – {self.unfit_to}"
+
+
+class ReferralLetter(AuditedModel, ClinicScopedModel, SoftDeleteModel, TimeStampedModel):
+    consultation = models.ForeignKey(
+        Consultation, on_delete=models.PROTECT, related_name="referrals"
+    )
+    destination_facility = models.CharField(max_length=200)
+    reason = models.TextField()
+
+    def __str__(self):
+        return f"Referral to {self.destination_facility}"
+
+
 class ConsultationDiagnosis(AuditedModel, ClinicScopedModel, TimeStampedModel):
     """Coded diagnosis and/or free text — at least one is required (DB-enforced).
     Editable only while the parent consultation is a draft; amendments receive

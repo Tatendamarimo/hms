@@ -16,7 +16,24 @@ from apps.core.models import AuditLog
 from apps.encounters.models import Encounter
 from apps.encounters.services import transition
 
-from .models import Consultation, ConsultationDiagnosis
+from .models import (
+    Consultation,
+    ConsultationDiagnosis,
+    Prescription,
+    PrescriptionItem,
+    ReferralLetter,
+    SickNote,
+)
+from .prescribing_rules import match_allergies
+
+
+class AllergyWarning(Exception):
+    """Unacknowledged allergy matches — the view returns 409 with the details
+    so the doctor must explicitly prescribe-anyway (design §2.4)."""
+
+    def __init__(self, warnings):
+        self.warnings = warnings
+        super().__init__("Documented patient allergies match this prescription.")
 
 
 class ConsultationStateError(Exception):
@@ -134,6 +151,117 @@ def amend(consultation, *, by, reason: str) -> Consultation:
                 created_by=by,
             )
     return amendment
+
+
+def require_open_document_window(consultation, by):
+    """Prescriptions, sick notes, and referrals attach to the author's
+    consultation (draft or signed) while the visit remains open."""
+    _require_author(consultation, by)
+    if consultation.is_voided:
+        raise ConsultationStateError("This consultation has been voided.")
+    if not consultation.encounter.is_open:
+        raise ConsultationStateError("The visit is closed; no further documents can be issued.")
+
+
+def create_prescription(consultation, *, by, items, acknowledged_allergy_ids=()) -> Prescription:
+    require_open_document_window(consultation, by)
+    if not items:
+        raise ValidationError({"items": "A prescription needs at least one item."})
+    for item in items:
+        if item.get("medication") is None and not (item.get("medication_note") or "").strip():
+            raise ValidationError(
+                {"items": "Each item needs a catalog medication or a medication_note."}
+            )
+
+    patient = consultation.encounter.patient
+    allergies = list(patient.allergies.values_list("id", "substance"))
+    names = [
+        item["medication"].name if item.get("medication") else item["medication_note"]
+        for item in items
+    ]
+    warnings = match_allergies(names, allergies)
+    unacknowledged = [w for w in warnings if w["allergy_id"] not in set(acknowledged_allergy_ids)]
+    if unacknowledged:
+        raise AllergyWarning(unacknowledged)
+
+    with transaction.atomic():
+        prescription = Prescription.objects.create(
+            clinic=consultation.clinic, consultation=consultation, created_by=by
+        )
+        for item in items:
+            PrescriptionItem.objects.create(
+                clinic=consultation.clinic,
+                prescription=prescription,
+                created_by=by,
+                medication=item.get("medication"),
+                medication_note=(item.get("medication_note") or "").strip(),
+                dose=item["dose"],
+                frequency=item["frequency"],
+                duration_days=item["duration_days"],
+                quantity=item["quantity"],
+                instructions=item.get("instructions", ""),
+            )
+        if warnings:
+            # Prescribing over a documented allergy is a deliberate,
+            # attributable clinical decision — make it loud in the audit log.
+            AuditLog.objects.create(
+                user=by,
+                clinic=consultation.clinic,
+                action=AuditLog.Action.UPDATE,
+                model_label="clinical.Prescription",
+                object_pk=str(prescription.pk),
+                object_repr=str(prescription)[:255],
+                changes={"allergy_acknowledged": warnings},
+            )
+    return prescription
+
+
+def cancel_prescription(prescription, *, by, reason: str) -> Prescription:
+    reason = (reason or "").strip()
+    if not reason:
+        raise ValidationError({"reason": "A cancellation reason is required."})
+    _require_author(prescription.consultation, by)
+    with transaction.atomic():
+        locked = Prescription.objects.select_for_update().get(pk=prescription.pk)
+        if locked.status != Prescription.Status.ISSUED:
+            raise ConsultationStateError("This prescription is already cancelled.")
+        locked.status = Prescription.Status.CANCELLED
+        locked.save(update_fields=["status", "updated_at"])
+        AuditLog.objects.create(
+            user=by,
+            clinic=locked.clinic,
+            action=AuditLog.Action.UPDATE,
+            model_label="clinical.Prescription",
+            object_pk=str(locked.pk),
+            object_repr=str(locked)[:255],
+            changes={"cancel_reason": reason},
+        )
+    return locked
+
+
+def create_sick_note(consultation, *, by, unfit_from, unfit_to, remarks="") -> SickNote:
+    require_open_document_window(consultation, by)
+    if unfit_to < unfit_from:
+        raise ValidationError({"unfit_to": "End date is before the start date."})
+    return SickNote.objects.create(
+        clinic=consultation.clinic,
+        consultation=consultation,
+        created_by=by,
+        unfit_from=unfit_from,
+        unfit_to=unfit_to,
+        remarks=remarks,
+    )
+
+
+def create_referral(consultation, *, by, destination_facility, reason) -> ReferralLetter:
+    require_open_document_window(consultation, by)
+    return ReferralLetter.objects.create(
+        clinic=consultation.clinic,
+        consultation=consultation,
+        created_by=by,
+        destination_facility=destination_facility,
+        reason=reason,
+    )
 
 
 def add_diagnosis(consultation, *, by, diagnosis=None, free_text="") -> ConsultationDiagnosis:
