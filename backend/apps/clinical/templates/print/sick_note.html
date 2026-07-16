@@ -1,0 +1,15 @@
+{% extends "print/base.html" %}
+{% block title %}Sick Note{% endblock %}
+{% block content %}
+  <h2 class="doc-title">Medical Certificate</h2>
+  <p class="meta"><strong>Date:</strong> {{ note.created_at|date:"Y-m-d" }}</p>
+  <p>This is to certify that <strong>{{ patient.full_name }}</strong>
+     was seen at {{ clinic.name }} and is unfit for work/school from
+     <strong>{{ note.unfit_from|date:"Y-m-d" }}</strong> to
+     <strong>{{ note.unfit_to|date:"Y-m-d" }}</strong> inclusive.</p>
+  {% if note.remarks %}<p>Remarks: {{ note.remarks }}</p>{% endif %}
+  <div class="sign">
+    <p>{{ doctor }}</p>
+    <p>Signature: ______________________________</p>
+  </div>
+{% endblock %}

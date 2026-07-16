@@ -1,0 +1,16 @@
+{% extends "print/base.html" %}
+{% block title %}Referral Letter{% endblock %}
+{% block content %}
+  <h2 class="doc-title">Referral Letter</h2>
+  <p class="meta"><strong>Date:</strong> {{ referral.created_at|date:"Y-m-d" }}<br>
+     <strong>To:</strong> {{ referral.destination_facility }}</p>
+  <p>Dear colleague,</p>
+  <p>I am referring <strong>{{ patient.full_name }}</strong>
+     ({{ patient.age }} yrs, {{ patient.get_sex_display }}, MRN {{ patient.mrn }})
+     for further management.</p>
+  <p><strong>Reason for referral:</strong><br>{{ referral.reason|linebreaks }}</p>
+  <div class="sign">
+    <p>{{ doctor }}<br>{{ clinic.name }}</p>
+    <p>Signature: ______________________________</p>
+  </div>
+{% endblock %}

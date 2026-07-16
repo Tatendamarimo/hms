@@ -1,0 +1,28 @@
+{% extends "print/base.html" %}
+{% block title %}Invoice {{ invoice.number }}{% endblock %}
+{% block content %}
+  <h2 class="doc-title">Invoice {{ invoice.number }}</h2>
+  <p class="meta">
+    <strong>Patient:</strong> {{ patient.full_name }} ({{ patient.mrn }})<br>
+    <strong>Date:</strong> {{ invoice.issued_at|date:"Y-m-d" }} ·
+    <strong>Status:</strong> {{ invoice.status }}
+  </p>
+  <table>
+    <thead><tr><th>Item</th><th>Qty</th><th>Unit price</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for item in invoice.items.all %}
+      <tr>
+        <td>{{ item.description }}</td>
+        <td>{{ item.quantity }}</td>
+        <td>{{ item.unit_price }}</td>
+        <td>{{ item.line_total }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <table>
+    <tr><th>Total</th><td>{{ invoice.total }}</td></tr>
+    <tr><th>Paid</th><td>{{ invoice.paid_total }}</td></tr>
+    <tr><th>Balance due</th><td><strong>{{ invoice.balance }}</strong></td></tr>
+  </table>
+{% endblock %}

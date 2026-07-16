@@ -1,0 +1,33 @@
+{% extends "print/base.html" %}
+{% block title %}Prescription{% endblock %}
+{% block content %}
+  <h2 class="doc-title">Prescription</h2>
+  <p class="meta">
+    <strong>Patient:</strong> {{ patient.full_name }} ({{ patient.mrn }}) ·
+    {{ patient.age }} yrs · {{ patient.get_sex_display }}<br>
+    <strong>Date:</strong> {{ prescription.created_at|date:"Y-m-d" }}
+    {% if prescription.status == "cancelled" %} · <strong>CANCELLED</strong>{% endif %}
+  </p>
+  <table>
+    <thead>
+      <tr><th>Medication</th><th>Dose</th><th>Frequency</th><th>Duration</th><th>Qty</th></tr>
+    </thead>
+    <tbody>
+      {% for item in prescription.items.all %}
+      <tr>
+        <td>{{ item.display_name }}{% if item.instructions %}<br>
+            <small>{{ item.instructions }}</small>{% endif %}</td>
+        <td>{{ item.dose }}</td>
+        <td>{{ item.frequency }}</td>
+        <td>{{ item.duration_days }} day{{ item.duration_days|pluralize }}</td>
+        <td>{{ item.quantity }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="sign">
+    <p>{{ doctor }}<br>
+    {% if consultation.signed_at %}Signed: {{ consultation.signed_at|date:"Y-m-d H:i" }}{% endif %}</p>
+    <p>Signature: ______________________________</p>
+  </div>
+{% endblock %}

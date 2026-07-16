@@ -1,0 +1,26 @@
+{% extends "print/base.html" %}
+{% block title %}Patient Registration{% endblock %}
+{% block content %}
+  <h2 class="doc-title">Patient Registration Form</h2>
+  <table>
+    <tr><th>MRN</th><td>{{ patient.mrn }}</td></tr>
+    <tr><th>Name</th><td>{{ patient.full_name }}</td></tr>
+    <tr><th>Date of birth</th><td>{{ patient.date_of_birth|date:"Y-m-d" }} ({{ patient.age }} yrs)</td></tr>
+    <tr><th>Sex</th><td>{{ patient.get_sex_display }}</td></tr>
+    <tr><th>National ID</th><td>{{ patient.national_id|default:"—" }}</td></tr>
+    <tr><th>Phone</th><td>{{ patient.phone|default:"—" }}</td></tr>
+    <tr><th>Address</th><td>{{ patient.address|default:"—" }}</td></tr>
+    <tr><th>Next of kin</th>
+        <td>{{ patient.next_of_kin_name|default:"—" }}
+            {% if patient.next_of_kin_phone %} · {{ patient.next_of_kin_phone }}{% endif %}</td></tr>
+    <tr><th>Medical aid</th>
+        <td>{{ patient.medical_aid_provider|default:"—" }}
+            {% if patient.medical_aid_number %} · {{ patient.medical_aid_number }}{% endif %}</td></tr>
+    <tr><th>Registered</th><td>{{ patient.created_at|date:"Y-m-d" }}</td></tr>
+  </table>
+  <p class="meta">Consent to data processing captured on
+     {{ patient.consent_given_at|date:"Y-m-d H:i" }}.</p>
+  <div class="sign">
+    <p>Patient signature: ______________________________</p>
+  </div>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "print/base.html" %}
+{% block title %}Receipt {{ payment.receipt_number }}{% endblock %}
+{% block content %}
+  <h2 class="doc-title">Receipt {{ payment.receipt_number }}</h2>
+  <table>
+    <tr><th>Patient</th><td>{{ patient.full_name }} ({{ patient.mrn }})</td></tr>
+    <tr><th>Invoice</th><td>{{ payment.invoice.number }}</td></tr>
+    <tr><th>Date</th><td>{{ payment.created_at|date:"Y-m-d H:i" }}</td></tr>
+    <tr><th>Amount</th><td><strong>{{ payment.amount }}</strong></td></tr>
+    <tr><th>Method</th><td>{{ payment.get_method_display }}
+        {% if payment.reference %} · ref {{ payment.reference }}{% endif %}</td></tr>
+    <tr><th>Received by</th><td>{{ payment.received_by }}</td></tr>
+    <tr><th>Balance after payment</th><td>{{ payment.invoice.balance }}</td></tr>
+  </table>
+  <p class="meta">Thank you.</p>
+{% endblock %}

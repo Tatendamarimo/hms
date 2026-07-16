@@ -1,0 +1,25 @@
+{% extends "print/base.html" %}
+{% block title %}Lab/Imaging Request{% endblock %}
+{% block content %}
+  <h2 class="doc-title">Laboratory / Imaging Request</h2>
+  <p class="meta">
+    <strong>Patient:</strong> {{ patient.full_name }} ({{ patient.mrn }}) ·
+    {{ patient.age }} yrs · {{ patient.get_sex_display }}<br>
+    <strong>Date:</strong> {{ order.created_at|date:"Y-m-d" }}
+    {% if order.status == "cancelled" %} · <strong>CANCELLED</strong>{% endif %}
+  </p>
+  <table>
+    <thead><tr><th>Requested test / scan</th><th>Type</th></tr></thead>
+    <tbody>
+      {% for item in order.items.all %}
+      <tr><td>{{ item.service_item.name }}</td><td>{{ item.service_item.get_type_display }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if order.instructions %}<p><strong>Clinical notes / instructions:</strong><br>
+     {{ order.instructions|linebreaks }}</p>{% endif %}
+  <div class="sign">
+    <p>{{ doctor }}</p>
+    <p>Signature: ______________________________</p>
+  </div>
+{% endblock %}
