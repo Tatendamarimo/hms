@@ -5,11 +5,21 @@ never billing models directly."""
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import (
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    OuterRef,
+    Subquery,
+    Sum,
+    Value,
+)
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from apps.core.models import AuditLog, ClinicCounter
 
-from .models import Invoice, InvoiceItem, Payment
+from .models import CashUp, Invoice, InvoiceItem, Payment
 
 
 class BillingError(Exception):
@@ -239,6 +249,129 @@ def reverse_payment(payment, *, by, reason: str) -> Payment:
             },
         )
     return reversal
+
+
+def _drawer_queryset(clinic, cashier):
+    """The open drawer: this cashier's cash rows not yet covered by a
+    cash-up. Reversal rows are included — cash handed back left the drawer."""
+    return Payment.objects.filter(
+        clinic=clinic,
+        received_by=cashier,
+        method=Payment.Method.CASH,
+        cash_up__isnull=True,
+    ).order_by("created_at", "pk")
+
+
+def _drawer_expected(payments) -> Decimal:
+    return sum(
+        ((-p.amount if p.reversal_of_id else p.amount) for p in payments),
+        Decimal("0.00"),
+    )
+
+
+def _last_cash_up(clinic, cashier):
+    return (
+        CashUp.objects.filter(clinic=clinic, cashier=cashier)
+        .order_by("-period_end")
+        .first()
+    )
+
+
+def drawer_preview(clinic, cashier) -> dict:
+    """What POST close would reconcile right now — computed, never stored."""
+    payments = list(_drawer_queryset(clinic, cashier))
+    last = _last_cash_up(clinic, cashier)
+    if last is not None:
+        period_start = last.period_end
+    else:
+        period_start = payments[0].created_at if payments else None
+    return {
+        "expected_total": _drawer_expected(payments),
+        "payment_count": len(payments),
+        "period_start": period_start,
+        "previous_cash_up_at": last.period_end if last else None,
+        "payments": payments,
+    }
+
+
+def close_cash_up(clinic, *, cashier, counted_total, notes="") -> CashUp:
+    """End-of-day reconciliation (FRD §5.7): count the drawer, record the
+    variance, stamp the covered payments so the next period starts clean.
+    Atomic — the row is born closed; there is no half-open cash-up."""
+    notes = (notes or "").strip()
+    counted_total = Decimal(counted_total)
+    if counted_total < 0:
+        raise BillingError("The counted total cannot be negative.")
+    with transaction.atomic():
+        payments = list(_drawer_queryset(clinic, cashier).select_for_update())
+        if not payments:
+            raise BillingError("There are no cash payments to cash up.")
+        expected = _drawer_expected(payments)
+        if counted_total != expected and not notes:
+            raise BillingError(
+                "Counted and expected totals differ — a note explaining "
+                "the variance is required."
+            )
+        last = _last_cash_up(clinic, cashier)
+        cash_up = CashUp.objects.create(
+            clinic=clinic,
+            cashier=cashier,
+            period_start=last.period_end if last else payments[0].created_at,
+            period_end=timezone.now(),
+            expected_total=expected,
+            counted_total=counted_total,
+            notes=notes,
+            status=CashUp.Status.CLOSED,
+            created_by=cashier,
+        )
+        # Individual saves, not queryset.update(): the stamp is the one
+        # sanctioned mutation of a Payment row and must hit the audit trail.
+        for payment in payments:
+            payment.cash_up = cash_up
+            payment.save(update_fields=["cash_up", "updated_at"])
+    return cash_up
+
+
+def unpaid_invoices(clinic):
+    """Invoices carrying a balance, aggregated in the database so the view
+    never loads paid history (FRD §5.7 unpaid balances view). Mirrors the
+    Invoice.total / paid_total properties: voided lines excluded, reversed
+    payments and their reversal rows cancel out."""
+    money = DecimalField(max_digits=10, decimal_places=2)
+    line_totals = (
+        InvoiceItem.objects.filter(invoice=OuterRef("pk"))
+        .order_by()
+        .values("invoice")
+        .annotate(t=Sum(F("unit_price") * F("quantity"), output_field=money))
+        .values("t")
+    )
+    paid_totals = (
+        Payment.objects.filter(
+            invoice=OuterRef("pk"),
+            reversal_of__isnull=True,
+            reversed_by__isnull=True,
+        )
+        .order_by()
+        .values("invoice")
+        .annotate(t=Sum("amount"))
+        .values("t")
+    )
+    zero = Value(Decimal("0.00"))
+    return (
+        Invoice.objects.filter(clinic=clinic)
+        .annotate(
+            total_amount=Coalesce(Subquery(line_totals), zero, output_field=money),
+            paid_amount=Coalesce(Subquery(paid_totals), zero, output_field=money),
+        )
+        .annotate(
+            outstanding=ExpressionWrapper(
+                F("total_amount") - F("paid_amount"), output_field=money
+            )
+        )
+        .filter(outstanding__gt=0)
+        .select_related("encounter__patient")
+        .order_by("-outstanding", "pk")
+    )
 
 
 def prepayment_satisfied(encounter) -> bool:

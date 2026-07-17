@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    CashUpView,
     InvoiceDetailView,
     InvoiceItemCreateView,
     InvoiceItemVoidView,
@@ -9,6 +10,7 @@ from .views import (
     PaymentReverseView,
     ServiceItemViewSet,
     ServicePriceViewSet,
+    UnpaidBalancesView,
 )
 
 router = DefaultRouter()
@@ -25,5 +27,7 @@ urlpatterns = [
         name="invoice-item-void",
     ),
     path("payments/<int:pk>/reverse/", PaymentReverseView.as_view(), name="payment-reverse"),
+    path("cashup/", CashUpView.as_view(), name="cashup"),
+    path("unpaid/", UnpaidBalancesView.as_view(), name="unpaid-balances"),
     *router.urls,
 ]

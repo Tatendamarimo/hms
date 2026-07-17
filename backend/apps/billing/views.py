@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import mixins, status, viewsets
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
@@ -10,12 +12,15 @@ from apps.core.permissions import RolePermission
 from . import services
 from .models import Invoice, InvoiceItem, Payment, ServiceItem, ServicePrice
 from .serializers import (
+    CashUpCloseSerializer,
+    CashUpSerializer,
     InvoiceItemCreateSerializer,
     InvoiceItemSerializer,
     InvoiceSerializer,
     PaymentSerializer,
     ServiceItemSerializer,
     ServicePriceSerializer,
+    UnpaidInvoiceSerializer,
 )
 
 TILL_ROLES = [roles.CASHIER, roles.RECEPTIONIST]
@@ -156,6 +161,74 @@ class InvoiceItemVoidView(APIView):
         except tuple(BILLING_ERROR_STATUS) as exc:
             return _billing_error(exc)
         return Response(InvoiceItemSerializer(item).data)
+
+
+class CashUpView(APIView):
+    """GET = live preview of the requesting cashier's open drawer (computed,
+    creates nothing); POST = count-and-close in one atomic step (design §4:
+    `billing/cashup/` GET current, POST close — Cashier only)."""
+
+    permission_classes = [RolePermission]
+    role_map = {"get": [roles.CASHIER], "post": [roles.CASHIER]}
+
+    def get(self, request):
+        preview = services.drawer_preview(get_active_clinic(request), request.user)
+        return Response(
+            {
+                "expected_total": str(preview["expected_total"]),
+                "payment_count": preview["payment_count"],
+                "period_start": preview["period_start"],
+                "previous_cash_up_at": preview["previous_cash_up_at"],
+                "payments": PaymentSerializer(preview["payments"], many=True).data,
+            }
+        )
+
+    def post(self, request):
+        serializer = CashUpCloseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            cash_up = services.close_cash_up(
+                get_active_clinic(request),
+                cashier=request.user,
+                **serializer.validated_data,
+            )
+        except tuple(BILLING_ERROR_STATUS) as exc:
+            return _billing_error(exc)
+        return Response(CashUpSerializer(cash_up).data, status=status.HTTP_201_CREATED)
+
+
+class UnpaidBalancesView(APIView):
+    """Per-patient outstanding balances from derived invoice status
+    (FRD §5.7). Patients owing the most first."""
+
+    permission_classes = [RolePermission]
+    role_map = {"get": [roles.CASHIER, roles.ADMIN]}
+
+    def get(self, request):
+        invoices = services.unpaid_invoices(get_active_clinic(request))
+        by_patient: dict[int, dict] = {}
+        for invoice in invoices:
+            patient = invoice.encounter.patient
+            entry = by_patient.setdefault(
+                patient.pk,
+                {
+                    "patient": {
+                        "id": patient.pk,
+                        "mrn": patient.mrn,
+                        "full_name": patient.full_name,
+                    },
+                    "outstanding": Decimal("0.00"),
+                    "invoices": [],
+                },
+            )
+            entry["outstanding"] += invoice.outstanding
+            entry["invoices"].append(UnpaidInvoiceSerializer(invoice).data)
+        results = sorted(
+            by_patient.values(), key=lambda entry: entry["outstanding"], reverse=True
+        )
+        for entry in results:
+            entry["outstanding"] = str(entry["outstanding"])
+        return Response({"count": len(results), "results": results})
 
 
 class PaymentReverseView(APIView):

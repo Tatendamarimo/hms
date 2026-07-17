@@ -1,7 +1,7 @@
 # ADR-0003: Refunds are recorded as full payment reversals
 
 **Date:** 2026-07-16
-**Status:** Proposed (Slice 7 design review)
+**Status:** Accepted (2026-07-17, Slice 7 review)
 **Refines:** Phase 1 Technical Design §2.5 (Payment: `reversal_of` self-FK,
 "reversal = negative-effect row with reason"); FRD §5.7
 

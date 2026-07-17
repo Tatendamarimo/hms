@@ -204,6 +204,10 @@ class Payment(AuditedModel, ClinicScopedModel, TimeStampedModel):
     reversal_of = models.OneToOneField(
         "self", null=True, blank=True, on_delete=models.PROTECT, related_name="reversed_by"
     )
+    cash_up = models.ForeignKey(
+        "CashUp", null=True, blank=True, on_delete=models.PROTECT,
+        related_name="payments", editable=False,
+    )
 
     class Meta:
         constraints = [
@@ -215,3 +219,51 @@ class Payment(AuditedModel, ClinicScopedModel, TimeStampedModel):
 
     def __str__(self):
         return f"{self.receipt_number} {self.amount} ({self.method})"
+
+
+class CashUp(AuditedModel, ClinicScopedModel, TimeStampedModel):
+    """End-of-day drawer reconciliation per cashier (FRD §5.7): expected vs
+    counted, variance recorded. Append-only like Payment — a cash-up records
+    a count that happened; a wrong count is explained in notes, never edited
+    away. Rows are created already closed by services.close_cash_up: the
+    'open drawer' is simply the cashier's cash payments not yet stamped with
+    a cash_up FK, so no open row accumulates state."""
+
+    class Status(models.TextChoices):
+        OPEN = "open"
+        CLOSED = "closed"
+
+    cashier = models.ForeignKey(
+        django_settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name="cash_ups", editable=False,
+    )
+    period_start = models.DateTimeField(editable=False)
+    period_end = models.DateTimeField(editable=False)
+    # Reversal rows count negative, so a drawer can owe money overall.
+    expected_total = models.DecimalField(max_digits=10, decimal_places=2, editable=False)
+    counted_total = models.DecimalField(
+        max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal("0.00"))]
+    )
+    notes = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.CLOSED
+    )
+
+    class Meta:
+        ordering = ["-period_end"]
+        constraints = [
+            models.CheckConstraint(
+                name="nonzero_variance_needs_notes",
+                condition=(
+                    models.Q(counted_total=models.F("expected_total"))
+                    | ~models.Q(notes="")
+                ),
+            ),
+        ]
+
+    @property
+    def variance(self) -> Decimal:
+        return self.counted_total - self.expected_total
+
+    def __str__(self):
+        return f"Cash-up {self.cashier} @ {self.period_end:%Y-%m-%d %H:%M}"

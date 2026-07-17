@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Invoice, InvoiceItem, Payment, ServiceItem, ServicePrice
+from .models import CashUp, Invoice, InvoiceItem, Payment, ServiceItem, ServicePrice
 
 
 class ServiceItemSerializer(serializers.ModelSerializer):
@@ -89,6 +89,44 @@ class PaymentSerializer(serializers.ModelSerializer):
             "received_by_name", "reversal_of", "created_at",
         ]
         read_only_fields = ["receipt_number", "reversal_of", "created_at"]
+
+
+class CashUpCloseSerializer(serializers.Serializer):
+    """Transport shape only — drawer rules live in billing.services."""
+
+    counted_total = serializers.DecimalField(max_digits=10, decimal_places=2)
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class CashUpSerializer(serializers.ModelSerializer):
+    cashier_name = serializers.CharField(source="cashier.get_full_name", read_only=True)
+    variance = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = CashUp
+        fields = [
+            "id", "cashier_name", "period_start", "period_end",
+            "expected_total", "counted_total", "variance", "notes", "status",
+            "created_at",
+        ]
+
+
+class UnpaidInvoiceSerializer(serializers.Serializer):
+    """One outstanding invoice inside the per-patient unpaid view. Reads the
+    aggregates annotated by services.unpaid_invoices — no clinical fields
+    (desk-tier serializer, design §4)."""
+
+    id = serializers.IntegerField()
+    number = serializers.CharField()
+    issued_at = serializers.DateTimeField()
+    encounter_status = serializers.CharField(source="encounter.status")
+    total = serializers.DecimalField(
+        max_digits=10, decimal_places=2, source="total_amount"
+    )
+    paid = serializers.DecimalField(
+        max_digits=10, decimal_places=2, source="paid_amount"
+    )
+    outstanding = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 
 class InvoiceSerializer(serializers.ModelSerializer):
