@@ -1,12 +1,20 @@
 {% extends "print/base.html" %}
 {% block title %}Receipt {{ payment.receipt_number }}{% endblock %}
 {% block content %}
-  <h2 class="doc-title">Receipt {{ payment.receipt_number }}</h2>
+  <h2 class="doc-title">
+    {% if payment.reversal_of %}Reversal receipt {{ payment.receipt_number }}
+    {% else %}Receipt {{ payment.receipt_number }}{% endif %}
+  </h2>
   <table>
     <tr><th>Patient</th><td>{{ patient.full_name }} ({{ patient.mrn }})</td></tr>
     <tr><th>Invoice</th><td>{{ payment.invoice.number }}</td></tr>
+    {% if payment.reversal_of %}
+    <tr><th>Reverses</th><td>{{ payment.reversal_of.receipt_number }}
+        ({{ payment.reversal_of.created_at|date:"Y-m-d" }})</td></tr>
+    {% endif %}
     <tr><th>Date</th><td>{{ payment.created_at|date:"Y-m-d H:i" }}</td></tr>
-    <tr><th>Amount</th><td><strong>{{ payment.amount }}</strong></td></tr>
+    <tr><th>{% if payment.reversal_of %}Amount returned{% else %}Amount{% endif %}</th>
+        <td><strong>{{ payment.amount }}</strong></td></tr>
     <tr><th>Method</th><td>{{ payment.get_method_display }}
         {% if payment.reference %} · ref {{ payment.reference }}{% endif %}</td></tr>
     <tr><th>Received by</th><td>{{ payment.received_by }}</td></tr>

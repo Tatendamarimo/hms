@@ -8,8 +8,10 @@ from apps.core.api import ClinicScopedViewSetMixin, get_active_clinic
 from apps.core.permissions import RolePermission
 
 from . import services
-from .models import Invoice, ServiceItem, ServicePrice
+from .models import Invoice, InvoiceItem, Payment, ServiceItem, ServicePrice
 from .serializers import (
+    InvoiceItemCreateSerializer,
+    InvoiceItemSerializer,
     InvoiceSerializer,
     PaymentSerializer,
     ServiceItemSerializer,
@@ -17,6 +19,16 @@ from .serializers import (
 )
 
 TILL_ROLES = [roles.CASHIER, roles.RECEPTIONIST]
+
+BILLING_ERROR_STATUS = {
+    services.BillingError: status.HTTP_400_BAD_REQUEST,
+    services.BillingPermissionError: status.HTTP_403_FORBIDDEN,
+    services.BillingConflict: status.HTTP_409_CONFLICT,
+}
+
+
+def _billing_error(exc) -> Response:
+    return Response({"detail": str(exc)}, status=BILLING_ERROR_STATUS[type(exc)])
 
 
 class ServiceItemViewSet(
@@ -92,5 +104,72 @@ class PaymentCreateView(APIView):
                 received_by=request.user,
             )
         except services.BillingError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return _billing_error(exc)
         return Response(PaymentSerializer(payment).data, status=status.HTTP_201_CREATED)
+
+
+class InvoiceItemCreateView(APIView):
+    """Desk additions: catalog service lines for the till roles; discount
+    lines additionally gated by billing.apply_discount (checked in the
+    service, seeded Admin-only — hence Admin passes the role gate here)."""
+
+    permission_classes = [RolePermission]
+    role_map = {"post": [*TILL_ROLES, roles.ADMIN]}
+
+    def post(self, request, pk):
+        invoice = get_object_or_404(
+            Invoice.objects.filter(clinic=get_active_clinic(request)), pk=pk
+        )
+        serializer = InvoiceItemCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            if data["item_type"] == InvoiceItem.ItemType.DISCOUNT:
+                item = services.apply_discount(
+                    invoice, by=request.user, amount=data["amount"], reason=data["reason"]
+                )
+            else:
+                item = services.add_manual_line(
+                    invoice,
+                    service_item=data["service_item"],
+                    by=request.user,
+                    quantity=data["quantity"],
+                )
+        except tuple(BILLING_ERROR_STATUS) as exc:
+            return _billing_error(exc)
+        return Response(InvoiceItemSerializer(item).data, status=status.HTTP_201_CREATED)
+
+
+class InvoiceItemVoidView(APIView):
+    permission_classes = [RolePermission]
+    role_map = {"post": [roles.ADMIN]}
+
+    def post(self, request, pk, item_pk):
+        item = get_object_or_404(
+            InvoiceItem.all_objects.filter(
+                clinic=get_active_clinic(request), invoice_id=pk
+            ),
+            pk=item_pk,
+        )
+        try:
+            item = services.void_line(item, by=request.user, reason=request.data.get("reason", ""))
+        except tuple(BILLING_ERROR_STATUS) as exc:
+            return _billing_error(exc)
+        return Response(InvoiceItemSerializer(item).data)
+
+
+class PaymentReverseView(APIView):
+    permission_classes = [RolePermission]
+    role_map = {"post": [roles.CASHIER, roles.ADMIN]}
+
+    def post(self, request, pk):
+        payment = get_object_or_404(
+            Payment.objects.filter(clinic=get_active_clinic(request)), pk=pk
+        )
+        try:
+            reversal = services.reverse_payment(
+                payment, by=request.user, reason=request.data.get("reason", "")
+            )
+        except tuple(BILLING_ERROR_STATUS) as exc:
+            return _billing_error(exc)
+        return Response(PaymentSerializer(reversal).data, status=status.HTTP_201_CREATED)

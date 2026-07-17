@@ -7,8 +7,17 @@ from apps.accounts.roles import ALL_ROLES
 # Module-level permissions grow per phase; group membership stays the single
 # source of truth for who can do what beyond the role_map defaults.
 ROLE_PERMISSIONS = {
-    roles.CASHIER: [("encounters", "close_with_balance")],
-    roles.ADMIN: [("encounters", "close_with_balance")],
+    roles.CASHIER: [
+        ("encounters", "close_with_balance"),
+        ("billing", "reverse_payment"),
+    ],
+    # apply_discount is deliberately Admin-only by default (fraud surface);
+    # a clinic that trusts Cashiers with discounts grants it explicitly.
+    roles.ADMIN: [
+        ("encounters", "close_with_balance"),
+        ("billing", "apply_discount"),
+        ("billing", "reverse_payment"),
+    ],
 }
 
 

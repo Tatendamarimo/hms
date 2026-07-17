@@ -40,3 +40,8 @@ added as manual invoice lines by the desk (Slice 7).
 - If a clinic ever wants consult fees derived from the consultation itself
   (e.g. tiered by length), that becomes an explicit billing feature, not a
   side effect of signing.
+- *(Addendum, 2026-07-16, Slice 7 design)* The design §2.5 source-link text
+  ("exactly one of consultation / lab_order") predates this ADR: since no code
+  path ever creates an invoice line **from** a consultation, `InvoiceItem`
+  never grew a `consultation` FK. Phase 1 source links are `lab_order` only;
+  the dispense link arrives with Phase 2 pharmacy.

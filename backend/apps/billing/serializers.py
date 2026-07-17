@@ -45,20 +45,50 @@ class InvoiceItemSerializer(serializers.ModelSerializer):
         model = InvoiceItem
         fields = [
             "id", "description", "quantity", "unit_price", "line_total",
-            "item_type", "service_item", "created_at",
+            "item_type", "discount_reason", "service_item", "created_at",
         ]
+
+
+class InvoiceItemCreateSerializer(serializers.Serializer):
+    """Transport shape only — amounts, permissions, and invoice-state rules
+    live in billing.services."""
+
+    item_type = serializers.ChoiceField(
+        choices=InvoiceItem.ItemType.choices, default=InvoiceItem.ItemType.SERVICE
+    )
+    service_item = serializers.PrimaryKeyRelatedField(
+        queryset=ServiceItem.objects.all(), required=False, allow_null=True
+    )
+    quantity = serializers.IntegerField(min_value=1, default=1)
+    amount = serializers.DecimalField(
+        max_digits=10, decimal_places=2, required=False, allow_null=True
+    )
+    reason = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate(self, attrs):
+        if attrs["item_type"] == InvoiceItem.ItemType.SERVICE:
+            if attrs.get("service_item") is None:
+                raise serializers.ValidationError(
+                    {"service_item": "A catalog service is required for a service line."}
+                )
+        elif attrs.get("amount") is None:
+            raise serializers.ValidationError(
+                {"amount": "A discount needs an amount."}
+            )
+        return attrs
 
 
 class PaymentSerializer(serializers.ModelSerializer):
     received_by_name = serializers.CharField(source="received_by.get_full_name", read_only=True)
+    reversal_of = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = Payment
         fields = [
             "id", "amount", "method", "reference", "receipt_number",
-            "received_by_name", "created_at",
+            "received_by_name", "reversal_of", "created_at",
         ]
-        read_only_fields = ["receipt_number", "created_at"]
+        read_only_fields = ["receipt_number", "reversal_of", "created_at"]
 
 
 class InvoiceSerializer(serializers.ModelSerializer):

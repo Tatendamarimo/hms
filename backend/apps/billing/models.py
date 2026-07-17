@@ -87,6 +87,9 @@ class Invoice(AuditedModel, ClinicScopedModel, SoftDeleteModel, TimeStampedModel
         constraints = [
             models.UniqueConstraint(fields=["clinic", "number"], name="unique_invoice_number"),
         ]
+        permissions = [
+            ("apply_discount", "Can apply a discount to an invoice"),
+        ]
 
     def __str__(self):
         return self.number
@@ -117,8 +120,10 @@ class Invoice(AuditedModel, ClinicScopedModel, SoftDeleteModel, TimeStampedModel
 
 class InvoiceItem(AuditedModel, ClinicScopedModel, SoftDeleteModel, TimeStampedModel):
     """unit_price is snapshotted from ServicePrice at creation — later price
-    changes never touch existing invoices. Source-record FKs (consultation,
-    lab order) are added by slices 5–6."""
+    changes never touch existing invoices. Source links: lab_order only in
+    Phase 1 (the consultation link is dead per ADR-0002; dispense arrives with
+    Phase 2 pharmacy). Discount lines are the sanctioned exception to
+    catalog-priced-only: negative amount, permission-gated, structured reason."""
 
     class ItemType(models.TextChoices):
         SERVICE = "service"
@@ -139,6 +144,33 @@ class InvoiceItem(AuditedModel, ClinicScopedModel, SoftDeleteModel, TimeStampedM
     item_type = models.CharField(
         max_length=10, choices=ItemType.choices, default=ItemType.SERVICE
     )
+    discount_reason = models.CharField(max_length=255, blank=True, default="")
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                name="discount_lines_negative_sourceless_reasoned",
+                condition=(
+                    ~models.Q(item_type="discount")
+                    | (
+                        models.Q(unit_price__lt=0)
+                        & models.Q(service_item__isnull=True)
+                        & models.Q(lab_order__isnull=True)
+                        & ~models.Q(discount_reason="")
+                    )
+                ),
+            ),
+            models.CheckConstraint(
+                name="service_lines_nonnegative_unreasoned",
+                condition=(
+                    ~models.Q(item_type="service")
+                    | (
+                        models.Q(unit_price__gte=0)
+                        & models.Q(discount_reason="")
+                    )
+                ),
+            ),
+        ]
 
     def __str__(self):
         return f"{self.description} x{self.quantity}"
@@ -176,6 +208,9 @@ class Payment(AuditedModel, ClinicScopedModel, TimeStampedModel):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["clinic", "receipt_number"], name="unique_receipt"),
+        ]
+        permissions = [
+            ("reverse_payment", "Can reverse a recorded payment"),
         ]
 
     def __str__(self):
