@@ -4,6 +4,29 @@ All notable changes to HMS. Dates are UTC.
 
 ## [Unreleased] — Phase 1 in progress
 
+### 2026-07-17 — Slice 7: Invoices & payments completion
+- Desk-added catalog lines (`POST /invoices/<id>/items/`): till roles + Admin,
+  price snapshotted at entry, quantity multiplies, inactive / unpriced /
+  foreign-clinic services rejected; invoice row-locked like payments
+- Discounts: negative `InvoiceItem` gated by the named `billing.apply_discount`
+  permission (seeded **Admin-only** — fraud surface; a trusting clinic grants
+  it explicitly), mandatory structured reason, loud audit entry; DB check
+  constraints keep discount lines negative/sourceless/reasoned and service
+  lines non-negative/unreasoned; cannot exceed the total or undercut what is
+  already paid
+- Line voiding (Admin, mandatory reason): desk lines only — lab lines are
+  retracted by cancelling the order; blocked if it would leave the invoice
+  below its paid total
+- **ADR-0003:** refunds are full payment reversals — a reversal is a `Payment`
+  row (`reversal_of` one-to-one, own REC- number, same method) excluded with
+  its original from derived totals; partial refund = full reverse + re-record;
+  reversals need `billing.reverse_payment` (Cashier/Admin) + reason + loud
+  audit; a reversal can't be reversed, double reversal is a 409
+- Reversal-aware receipt print (shows the reversed receipt number and
+  "Amount returned")
+- ADR-0002 addendum: `InvoiceItem` has no `consultation` FK in Phase 1
+  (design §2.5 text predates the ADR); source links are `lab_order` only
+
 ### 2026-07-16 — Slice 6: Orders & printables
 - Prescriptions (coded Medication FK or free-text item, DB check enforces one
   or the other): issue on the author's consultation (draft or signed) while

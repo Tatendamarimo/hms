@@ -48,7 +48,8 @@ laboratory  → clinical (consultation FK + document-window/author rules),
   views translate exceptions to HTTP.
 - Concurrency-sensitive operations take a row lock (`select_for_update`):
   counters, doctor claim, payment recording, vitals + auto-transition,
-  consultation sign/amend, prescription + lab-order cancellation.
+  consultation sign/amend, prescription + lab-order cancellation, invoice
+  adjustments (manual lines, discounts, line voids) + payment reversal.
 - Clinical computations snapshot their inputs (ADR-0001): vitals store applied
   ranges + flags; invoice items and lab-order items store unit prices.
 - Printables (`/print/…`, outside `/api/v1/`) are server-rendered HTML built
@@ -74,7 +75,9 @@ laboratory  → clinical (consultation FK + document-window/author rules),
   entries. `AuditLog` is append-only and read-only in admin.
 - Permissions: declarative `role_map` per view (deny-by-default, no
   Admin/superuser bypass) + Django permissions for named privileges
-  (`encounters.close_with_balance`), seeded by `seed_roles`.
+  (`encounters.close_with_balance`, `billing.apply_discount`,
+  `billing.reverse_payment`), seeded by `seed_roles`; named-permission checks
+  live in the service layer so they hold no matter which view calls in.
 
 ## Testing standard
 
