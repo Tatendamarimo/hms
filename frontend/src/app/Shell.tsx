@@ -1,16 +1,42 @@
-import { Outlet } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 import { useLogout, useSwitchClinic } from "../features/auth/useAuth";
-import type { Me } from "../api/types";
+import type { Me, Role } from "../api/types";
+
+const NAV: { to: string; label: string; roles: Role[] }[] = [
+  {
+    to: "/queue",
+    label: "Queue",
+    roles: ["Receptionist", "Nurse", "Doctor", "Cashier", "Lab Technician", "Pharmacist"],
+  },
+];
 
 export default function Shell({ me }: { me: Me }) {
   const logout = useLogout();
   const switchClinic = useSwitchClinic();
+  const links = NAV.filter((item) => item.roles.some((role) => me.roles.includes(role)));
 
   return (
     <div className="min-h-screen bg-slate-100">
       <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
         <div className="flex items-center gap-4">
           <span className="font-semibold text-slate-800">HMS</span>
+          <nav className="flex items-center gap-1">
+            {links.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `rounded-md px-3 py-1 text-sm ${
+                    isActive
+                      ? "bg-slate-800 text-white"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
           {me.clinics.length > 1 ? (
             <select
               value={me.active_clinic?.id ?? ""}

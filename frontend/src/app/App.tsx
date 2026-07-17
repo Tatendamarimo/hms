@@ -1,7 +1,22 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import LoginPage from "../features/auth/LoginPage";
 import { useMe } from "../features/auth/useAuth";
+import QueuePage from "../features/queue/QueuePage";
+import type { Me } from "../api/types";
 import Shell from "./Shell";
+
+const QUEUE_ROLES = [
+  "Receptionist",
+  "Nurse",
+  "Doctor",
+  "Cashier",
+  "Lab Technician",
+  "Pharmacist",
+] as const;
+
+export function canSeeQueue(me: Me): boolean {
+  return me.roles.some((role) => (QUEUE_ROLES as readonly string[]).includes(role));
+}
 
 export default function App() {
   const me = useMe();
@@ -18,20 +33,26 @@ export default function App() {
     return <LoginPage />;
   }
 
+  const user = me.data;
+
   return (
     <Routes>
-      <Route element={<Shell me={me.data} />}>
-        <Route index element={<Home />} />
+      <Route element={<Shell me={user} />}>
+        <Route index element={<Home me={user} />} />
+        {canSeeQueue(user) && <Route path="queue" element={<QueuePage me={user} />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   );
 }
 
-function Home() {
+function Home({ me }: { me: Me }) {
+  if (canSeeQueue(me)) {
+    return <Navigate to="/queue" replace />;
+  }
   return (
     <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-slate-500">
-      Phase 0 complete — clinical modules arrive in Phase 1.
+      Nothing to show for your role yet.
     </div>
   );
 }
