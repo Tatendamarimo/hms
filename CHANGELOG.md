@@ -4,6 +4,29 @@ All notable changes to HMS. Dates are UTC.
 
 ## [Unreleased] — Phase 1 in progress
 
+### 2026-07-17 — Slice 9: Frontend (4 sub-PRs)
+- **9.1 Queue**: /queue polling at 10s with invoice status/balance per row;
+  role-aware actions (Nurse triage, Doctor claim, Reception LWBS-with-reason);
+  search-first check-in dialog with optional priced consultation fee;
+  role-filtered nav + landing
+- **9.2 Patients**: search-first registration (form opens only after a
+  search), duplicate-409 candidates with open-instead links before the
+  audited create-anyway, mandatory consent; profile with receptionist edit
+  (DRF field errors inline), clinical-only visit timeline, print-registration
+- **9.3 Visit workspace**: /visit/:id per-role panels — always-on allergy
+  banner + chronic conditions (clinical); nurse vitals with flag highlighting
+  (applied ranges shown); doctor consultation editor (draft/sign/amend,
+  ICD-10 search + free text, prescriptions with allergy-guard 409 →
+  per-allergy acknowledgement, sick notes, referrals, lab/imaging orders
+  that bill the invoice); desk invoice panel (add service, Admin
+  discount/void, record payment, reverse); print buttons throughout
+- **9.4 Billing screens**: /billing/cashup drawer preview + count-and-close
+  with live variance hint; /billing/unpaid per-patient balances
+- Client: ApiError carries the DRF error body (field errors, 409 payloads);
+  api.list() handles cursor-paginated router lists; /print proxied in dev
+- Verified end-to-end against the dev server as four role sessions
+  (register → … → cash-up), print views included
+
 ### 2026-07-17 — Slice 8: Cash-up & unpaid balances
 - `CashUp` per cashier (FRD §5.7): expected vs counted, variance derived,
   variance ≠ 0 requires notes (service rule + DB check constraint). Append-only

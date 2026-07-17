@@ -6,44 +6,43 @@
 
 ## How to resume next session
 
-Open Claude Code in `~/hms` and say: **"Start Slice 9 per TASKS.md"** (only
-after the Slice 8 architecture review is approved).
+Open Claude Code in `~/hms` and say: **"Start Slice 10 per TASKS.md"** (only
+after the Slice 9 architecture review is approved).
 Source of truth = FRD v2 (`~/Desktop/Healthcare Management/…FRD v2.md`);
 Phase 1 plan = `docs/phase1-technical-design.md`; conventions = `ARCHITECTURE.md`.
 
 ## Where things stand
 
-- **Slice 8 (cash-up & unpaid balances) is DONE**: `CashUp` per cashier
-  (expected vs counted, variance needs notes — service rule + DB constraint),
-  atomic count-and-close that stamps the covered cash payments, computed
-  drawer preview (`GET /billing/cashup/`), per-patient unpaid balances view
-  (`GET /billing/unpaid/`, Cashier/Admin, DB-aggregated, most-owed first).
-  181 tests green on SQLite AND Postgres, ruff clean. Migration billing 0006
-  reviewed and applied to dev DB. ADR-0003 flipped to Accepted.
-- Awaiting **architecture review approval** before Slice 9 begins (standing
+- **Slice 9 (frontend) is DONE** in four sub-PR commits: 9.1 queue +
+  check-in, 9.2 search-first registration + profile, 9.3 visit workspace
+  (allergy banner, vitals, consultation editor with allergy-guard flow,
+  invoice panel), 9.4 cash-up + unpaid screens. Backend untouched
+  (181 tests still green), `tsc -b && vite build` clean.
+- **E2E-verified** against the dev servers as four role sessions (script:
+  register → dedupe 409 → check-in with fee → payment-first gate → pay →
+  triage → flagged vitals → claim → draft → ICD-10 → allergy-guard 409 →
+  acknowledged prescribe → lab order → sign → settle → cash-up → unpaid;
+  print views render through the dev proxy).
+- Awaiting **architecture review approval** before Slice 10 (standing
   instruction: stop between slices).
 
-### Slice 8 design notes for the review (2026-07-17)
-- **No open CashUp row**: the design's `status open/closed` enum is kept on
-  the model, but rows are only created closed — the "open drawer" is defined
-  as the cashier's cash payments with `cash_up IS NULL`, which makes the
-  period definition race-free (close row-locks exactly those payments;
-  a concurrent second close finds nothing and 400s).
-- **Reversals count negative** in the drawer; a cross-period refund can make
-  `expected_total` negative (counted stays ≥ 0, variance explained in notes).
-- **Close of an empty drawer is rejected** (400) — nothing to reconcile;
-  EcoCash/card payments never enter a drawer or get stamped.
-- **Unpaid view has no encounter-status filter** (FRD doesn't specify one);
-  each invoice row carries `encounter_status` so the frontend can separate
-  walked-out debt from in-progress visits.
-- Cash-up is strictly per (clinic, cashier, received_by) — a receptionist who
-  takes cash needs the Cashier role to cash up their own drawer (route table
-  gates `billing/cashup/` to Cashier; FRD notes the roles may be one person).
+### Slice 9 notes (2026-07-17)
+- Router list endpoints are cursor-paginated; action/APIView lists are plain
+  arrays → `api.list()` in the client handles both (catalog, lab orders).
+- `ApiError.body` carries the DRF error payload: field errors inline in
+  forms, duplicate-409 candidates, allergy-guard 409 acknowledgement flow.
+- Vite dev proxy forwards `/print` as well as `/api`.
+- Dev demo data seeder lives in the session scratchpad only (not committed):
+  clinic DEMO, users rec.demo/nurse.demo/dr.demo/cash.demo/admin.demo
+  (password `demo-pass-123`), priced catalog. Recreate ad hoc if needed —
+  Slice 10's "seeds" item should productize this.
+- UI reasons (LWBS, void, reversal, amend, cancel) use window.prompt —
+  functional, not pretty; acceptable for pilot, revisit if feedback demands.
 
 ## Slice roadmap (remaining Phase 1)
-- **9 — Frontend** ← next (after approval): queue → registration → visit
-  workspace → billing, 4 sub-PRs. Only the auth shell exists so far.
-- **10 — Hardening** (permission-matrix walk, E2E flow, seeds).
+- **10 — Hardening** ← next (after approval): permission-matrix walk,
+  E2E flow test (port the verification script into the test suite),
+  seed data polish.
 
 ## Open items / decisions pending clinic input
 - Make GitHub repo private (recommended, before any pilot deployment).
