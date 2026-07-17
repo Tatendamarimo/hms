@@ -6,36 +6,43 @@
 
 ## How to resume next session
 
-Open Claude Code in `~/hms` and say: **"Start Slice 8 per TASKS.md"** (only
-after the Slice 7 architecture review is approved).
+Open Claude Code in `~/hms` and say: **"Start Slice 9 per TASKS.md"** (only
+after the Slice 8 architecture review is approved).
 Source of truth = FRD v2 (`~/Desktop/Healthcare Management/…FRD v2.md`);
 Phase 1 plan = `docs/phase1-technical-design.md`; conventions = `ARCHITECTURE.md`.
 
 ## Where things stand
 
-- **Slice 7 (invoices & payments completion) is DONE**: manual catalog lines,
-  Admin-only discounts (`billing.apply_discount` + reason + loud audit + DB
-  check constraints), Admin line voiding, full payment reversals per
-  **ADR-0003** (`billing.reverse_payment`, reversal-aware receipt print).
-  160 tests green on SQLite AND Postgres, ruff clean. Migration billing 0005
-  reviewed and applied to dev DB.
-- Awaiting **architecture review approval** before Slice 8 begins (standing
+- **Slice 8 (cash-up & unpaid balances) is DONE**: `CashUp` per cashier
+  (expected vs counted, variance needs notes — service rule + DB constraint),
+  atomic count-and-close that stamps the covered cash payments, computed
+  drawer preview (`GET /billing/cashup/`), per-patient unpaid balances view
+  (`GET /billing/unpaid/`, Cashier/Admin, DB-aggregated, most-owed first).
+  181 tests green on SQLite AND Postgres, ruff clean. Migration billing 0006
+  reviewed and applied to dev DB. ADR-0003 flipped to Accepted.
+- Awaiting **architecture review approval** before Slice 9 begins (standing
   instruction: stop between slices).
 
-### Slice 7 wrap-up notes (2026-07-17)
-- Resumed from an uncommitted working tree: implementation + tests were in
-  place but 5 discount tests failed 403 — `InvoiceItemCreateView.role_map`
-  only allowed the till roles, so Admin (the only seeded holder of
-  `apply_discount`) never reached the service check. Fixed by adding ADMIN
-  to the role gate; the named permission stays the discount gate.
-- `discount_reason` made non-null (`default=""`, house style / ruff DJ001);
-  check constraints compare against `""` — migration 0005 regenerated before
-  first application.
-- ADR-0003 status is **Proposed** — flip to Accepted at review.
+### Slice 8 design notes for the review (2026-07-17)
+- **No open CashUp row**: the design's `status open/closed` enum is kept on
+  the model, but rows are only created closed — the "open drawer" is defined
+  as the cashier's cash payments with `cash_up IS NULL`, which makes the
+  period definition race-free (close row-locks exactly those payments;
+  a concurrent second close finds nothing and 400s).
+- **Reversals count negative** in the drawer; a cross-period refund can make
+  `expected_total` negative (counted stays ≥ 0, variance explained in notes).
+- **Close of an empty drawer is rejected** (400) — nothing to reconcile;
+  EcoCash/card payments never enter a drawer or get stamped.
+- **Unpaid view has no encounter-status filter** (FRD doesn't specify one);
+  each invoice row carries `encounter_status` so the frontend can separate
+  walked-out debt from in-progress visits.
+- Cash-up is strictly per (clinic, cashier, received_by) — a receptionist who
+  takes cash needs the Cashier role to cash up their own drawer (route table
+  gates `billing/cashup/` to Cashier; FRD notes the roles may be one person).
 
 ## Slice roadmap (remaining Phase 1)
-- **8 — Cash-up & unpaid balances** ← next (after approval).
-- **9 — Frontend** (queue → registration → visit workspace → billing, 4 sub-PRs).
+- **9 — Frontend** ← next (after approval): queue → registration → visit
+  workspace → billing, 4 sub-PRs. Only the auth shell exists so far.
 - **10 — Hardening** (permission-matrix walk, E2E flow, seeds).
 
 ## Open items / decisions pending clinic input

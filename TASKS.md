@@ -12,8 +12,8 @@ when its tests are green on SQLite + Postgres, lint passes, and it is committed.
 | 5 | Consultations (draft/sign/amend, diagnoses, break-glass) | ✅ done | ADR-0002; ICD-10 subset seeded from data file |
 | 6 | Orders & printables (prescriptions, allergy guard, Medication/LabOrder minimal, print views) | ✅ done | 133 tests green both DBs |
 | 7 | Invoices & payments completion (manual items, discounts, reversals) | ✅ done | ADR-0003 (refunds = full reversals); 160 tests green both DBs |
-| 8 | Cash-up & unpaid balances | ⏳ next — awaiting approval | |
-| 9 | Frontend (queue → registration → visit workspace → billing) | ▢ | 4 sub-PRs |
+| 8 | Cash-up & unpaid balances | ✅ done | Drawer = unstamped cash payments; 181 tests green both DBs |
+| 9 | Frontend (queue → registration → visit workspace → billing) | ⏳ next — awaiting approval | 4 sub-PRs |
 | 10 | Hardening (permission-matrix walk, E2E flow test, seeds) | ▢ | |
 
 Cross-phase backlog (not Phase 1): Admin 2FA, Sentry PHI-scrubbing, column

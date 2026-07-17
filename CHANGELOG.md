@@ -4,6 +4,25 @@ All notable changes to HMS. Dates are UTC.
 
 ## [Unreleased] — Phase 1 in progress
 
+### 2026-07-17 — Slice 8: Cash-up & unpaid balances
+- `CashUp` per cashier (FRD §5.7): expected vs counted, variance derived,
+  variance ≠ 0 requires notes (service rule + DB check constraint). Append-only
+  like `Payment` — a wrong count is explained in notes, never edited
+- The "open drawer" is the cashier's cash payments not yet stamped with a
+  `cash_up` FK — no open row accumulates state. `GET /billing/cashup/` returns
+  a computed preview (expected total, payment list, period); `POST` counts and
+  closes in one atomic step (row born closed, covered payments row-locked then
+  stamped one by one so each stamp hits the audit trail). Cashier-only
+- Reversal rows count **negative** in the drawer (cash handed back), so a
+  same-period reverse nets to zero and a cross-period refund can leave a
+  negative expected total — reconciling from the one payment ledger (ADR-0003)
+- Non-cash payments (EcoCash/card) never enter a drawer and are never stamped
+- `GET /billing/unpaid/` (Cashier, Admin): per-patient outstanding from derived
+  invoice status, aggregated in the database (voided lines excluded, reversed
+  pairs cancel), most-owed first; rows carry encounter status so the desk can
+  tell walked-out debt from an in-progress visit. Desk-tier fields only
+- ADR-0003 status flipped Proposed → Accepted (slice 7 review)
+
 ### 2026-07-17 — Slice 7: Invoices & payments completion
 - Desk-added catalog lines (`POST /invoices/<id>/items/`): till roles + Admin,
   price snapshotted at entry, quantity multiplies, inactive / unpriced /

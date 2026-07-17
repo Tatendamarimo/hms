@@ -49,7 +49,8 @@ laboratory  → clinical (consultation FK + document-window/author rules),
 - Concurrency-sensitive operations take a row lock (`select_for_update`):
   counters, doctor claim, payment recording, vitals + auto-transition,
   consultation sign/amend, prescription + lab-order cancellation, invoice
-  adjustments (manual lines, discounts, line voids) + payment reversal.
+  adjustments (manual lines, discounts, line voids) + payment reversal,
+  cash-up close (locks the payments being stamped).
 - Clinical computations snapshot their inputs (ADR-0001): vitals store applied
   ranges + flags; invoice items and lab-order items store unit prices.
 - Printables (`/print/…`, outside `/api/v1/`) are server-rendered HTML built
