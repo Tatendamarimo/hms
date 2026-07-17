@@ -9,6 +9,7 @@ export default defineConfig({
     proxy: {
       // Same-origin in dev: session cookie + CSRF just work
       "/api": "http://localhost:8000",
+      "/print": "http://localhost:8000",
     },
   },
 });

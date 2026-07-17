@@ -57,6 +57,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export const api = {
   get: <T>(path: string) => request<T>(path),
+  /** Router list endpoints are cursor-paginated ({next, previous, results});
+   * action/APIView lists are plain arrays. Accept both. */
+  list: async <T>(path: string): Promise<T[]> => {
+    const data = await request<T[] | { results: T[] }>(path);
+    return Array.isArray(data) ? data : data.results;
+  },
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) }),
   patch: <T>(path: string, body: unknown) =>

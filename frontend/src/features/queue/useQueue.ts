@@ -55,7 +55,7 @@ export function useCheckIn() {
 export function useConsultationServices() {
   return useQuery({
     queryKey: ["billing", "catalog", "consultation"],
-    queryFn: () => api.get<CatalogService[]>("/billing/catalog/"),
+    queryFn: () => api.list<CatalogService>("/billing/catalog/"),
     select: (services) =>
       services.filter(
         (service) =>

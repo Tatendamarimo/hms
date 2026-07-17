@@ -13,6 +13,8 @@ const NAV: { to: string; label: string; roles: Role[] }[] = [
     label: "Patients",
     roles: ["Receptionist", "Nurse", "Doctor", "Cashier"],
   },
+  { to: "/billing/cashup", label: "Cash-up", roles: ["Cashier"] },
+  { to: "/billing/unpaid", label: "Unpaid", roles: ["Cashier", "Admin"] },
 ];
 
 export default function Shell({ me }: { me: Me }) {

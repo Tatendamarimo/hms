@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import LoginPage from "../features/auth/LoginPage";
 import { useMe } from "../features/auth/useAuth";
+import CashUpPage from "../features/billing/CashUpPage";
+import UnpaidPage from "../features/billing/UnpaidPage";
 import PatientProfilePage from "../features/patients/PatientProfilePage";
 import PatientsPage from "../features/patients/PatientsPage";
 import QueuePage from "../features/queue/QueuePage";
@@ -55,6 +57,12 @@ export default function App() {
             <Route path="patients" element={<PatientsPage me={user} />} />
             <Route path="patients/:id" element={<PatientProfilePage me={user} />} />
           </>
+        )}
+        {user.roles.includes("Cashier") && (
+          <Route path="billing/cashup" element={<CashUpPage />} />
+        )}
+        {(user.roles.includes("Cashier") || user.roles.includes("Admin")) && (
+          <Route path="billing/unpaid" element={<UnpaidPage />} />
         )}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

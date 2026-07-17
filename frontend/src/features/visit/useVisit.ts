@@ -207,7 +207,7 @@ export function useCreateReferral(encounterId: number) {
 export function useOrderableServices() {
   return useQuery({
     queryKey: ["billing", "catalog", "orderable"],
-    queryFn: () => api.get<CatalogService[]>("/billing/catalog/"),
+    queryFn: () => api.list<CatalogService>("/billing/catalog/"),
     select: (services) =>
       services.filter(
         (service) =>
@@ -247,7 +247,7 @@ export function useCreateLabOrder(encounterId: number) {
 export function useLabOrders(consultationId: number | undefined) {
   return useQuery({
     queryKey: ["lab-orders", consultationId],
-    queryFn: () => api.get<LabOrder[]>(`/lab-orders/?consultation=${consultationId}`),
+    queryFn: () => api.list<LabOrder>(`/lab-orders/?consultation=${consultationId}`),
     enabled: consultationId !== undefined,
   });
 }
@@ -332,7 +332,7 @@ export function useReversePayment() {
 export function useBillableServices() {
   return useQuery({
     queryKey: ["billing", "catalog", "billable"],
-    queryFn: () => api.get<CatalogService[]>("/billing/catalog/"),
+    queryFn: () => api.list<CatalogService>("/billing/catalog/"),
     select: (services) =>
       services.filter((service) => service.is_active && service.current_price !== null),
     staleTime: 5 * 60 * 1000,
