@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { Patient } from "../../api/types";
 import { ErrorNotice } from "../../ui/format";
-import { useCheckIn, useConsultationServices, usePatientSearch } from "./useQueue";
+import { usePatientSearch } from "../patients/usePatients";
+import { useCheckIn, useConsultationServices } from "./useQueue";
 
 /** Search-first check-in (design §5). Picking a priced consultation service
  * adds the fee line at check-in — the payment-first gate then holds triage

@@ -11,6 +11,8 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     public detail: string,
+    /** Parsed error body — DRF's {field: [messages]} shape for form errors. */
+    public body: unknown = null,
   ) {
     super(detail);
   }
@@ -40,13 +42,15 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!response.ok) {
     let detail = response.statusText;
+    let errorBody: unknown = null;
     try {
-      const body = await response.json();
-      detail = body.detail ?? JSON.stringify(body);
+      errorBody = await response.json();
+      const parsed = errorBody as { detail?: string };
+      detail = parsed.detail ?? JSON.stringify(errorBody);
     } catch {
       /* non-JSON error body */
     }
-    throw new ApiError(response.status, detail);
+    throw new ApiError(response.status, detail, errorBody);
   }
   return response.json() as Promise<T>;
 }
@@ -55,6 +59,8 @@ export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) }),
+  patch: <T>(path: string, body: unknown) =>
+    request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
 };
 
 export async function primeCsrf(): Promise<void> {

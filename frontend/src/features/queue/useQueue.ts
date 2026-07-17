@@ -1,11 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import type {
-  CatalogService,
-  Encounter,
-  EncounterStatus,
-  Patient,
-} from "../../api/types";
+import type { CatalogService, Encounter, EncounterStatus } from "../../api/types";
 
 export const QUEUE_KEY = ["encounters", "queue"] as const;
 
@@ -54,15 +49,6 @@ export function useCheckIn() {
       checkin_service?: number | null;
     }) => api.post<Encounter>("/encounters/", body),
     onSuccess: invalidate,
-  });
-}
-
-export function usePatientSearch(query: string) {
-  return useQuery({
-    queryKey: ["patients", "search", query],
-    queryFn: () => api.get<Patient[]>(`/patients/search/?q=${encodeURIComponent(query)}`),
-    enabled: query.trim().length >= 2,
-    staleTime: 30_000,
   });
 }
 
