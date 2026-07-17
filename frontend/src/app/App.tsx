@@ -4,6 +4,7 @@ import { useMe } from "../features/auth/useAuth";
 import PatientProfilePage from "../features/patients/PatientProfilePage";
 import PatientsPage from "../features/patients/PatientsPage";
 import QueuePage from "../features/queue/QueuePage";
+import VisitPage from "../features/visit/VisitPage";
 import type { Me } from "../api/types";
 import Shell from "./Shell";
 
@@ -48,6 +49,7 @@ export default function App() {
       <Route element={<Shell me={user} />}>
         <Route index element={<Home me={user} />} />
         {canSeeQueue(user) && <Route path="queue" element={<QueuePage me={user} />} />}
+        {canSeeQueue(user) && <Route path="visit/:id" element={<VisitPage me={user} />} />}
         {isFrontDesk(user) && (
           <>
             <Route path="patients" element={<PatientsPage me={user} />} />

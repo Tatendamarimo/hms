@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import type { Encounter, Me } from "../../api/types";
 import {
   EncounterStatusBadge,
@@ -85,8 +86,12 @@ export default function QueuePage({ me }: { me: Me }) {
                   }`}
                 >
                   <td className="px-4 py-3">
-                    <div className="font-medium text-slate-800">{encounter.patient_name}</div>
-                    <div className="text-xs text-slate-500">{encounter.patient_mrn}</div>
+                    <Link to={`/visit/${encounter.id}`} className="block">
+                      <div className="font-medium text-slate-800 hover:underline">
+                        {encounter.patient_name}
+                      </div>
+                      <div className="text-xs text-slate-500">{encounter.patient_mrn}</div>
+                    </Link>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{formatTime(encounter.arrived_at)}</td>
                   <td className="px-4 py-3 text-slate-600">
