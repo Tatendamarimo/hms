@@ -14,7 +14,7 @@ when its tests are green on SQLite + Postgres, lint passes, and it is committed.
 | 7 | Invoices & payments completion (manual items, discounts, reversals) | ✅ done | ADR-0003 (refunds = full reversals); 160 tests green both DBs |
 | 8 | Cash-up & unpaid balances | ✅ done | Drawer = unstamped cash payments; 181 tests green both DBs |
 | 9 | Frontend (queue → registration → visit workspace → billing) | ✅ done | 4 sub-PR commits; E2E-verified against dev server |
-| 10 | Hardening (permission-matrix walk, E2E flow test, seeds) | ⏳ next — awaiting approval | |
+| 10 | Productization: white-label, shell, dashboards, UX polish (rescoped 2026-07-18; original hardening items fold into PR4) | 🔄 PR1 done — awaiting approval | PR1 design system + shell + white-label; PR2 dashboards; PR3 UX polish; PR4 billing polish + readiness |
 
 Cross-phase backlog (not Phase 1): Admin 2FA, Sentry PHI-scrubbing, column
 encryption evaluation (see README), appointments + clinic-favourite diagnoses

@@ -6,8 +6,15 @@
 
 ## How to resume next session
 
-Open Claude Code in `~/hms` and say: **"Start Slice 10 per TASKS.md"** (only
-after the Slice 9 architecture review is approved).
+**Slice 10 was rescoped (2026-07-18) to Frontend Productization** — 4 PRs
+with an approval stop after each: PR1 design system + shell + white-label
+(DONE, `c10b928`); PR2 role dashboards + navigation (**next** — dashboard
+components already drafted in `frontend/src/features/dashboard/`,
+deliberately uncommitted); PR3 UX polish incl. replacing every
+window.prompt with ReasonModal; PR4 billing polish + production-readiness
+checklist (absorbs the old hardening items: permission-matrix walk, E2E
+test port, seed productization).
+Say: **"Start PR2 per HANDOFF.md"** (only after the PR1 review is approved).
 Source of truth = FRD v2 (`~/Desktop/Healthcare Management/…FRD v2.md`);
 Phase 1 plan = `docs/phase1-technical-design.md`; conventions = `ARCHITECTURE.md`.
 

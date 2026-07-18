@@ -4,6 +4,24 @@ All notable changes to HMS. Dates are UTC.
 
 ## [Unreleased] — Phase 1 in progress
 
+### 2026-07-18 — Slice 10 PR1: Design system, app shell, white-label
+- White-label branding per tenant in `clinic.settings` (logo/favicon URLs,
+  primary/secondary colors, tagline; defaults in code, overrides merged,
+  unknown keys dropped). Public `GET /clinics/branding/` for the login page
+  (single active clinic → its identity; else neutral defaults). `/auth/me/`
+  clinics carry branding; print headers show the logo + primary color
+- ThemeProvider maps branding → CSS custom properties (derived hover/light
+  shades), document title, favicon; active clinic wins after login
+- Design system under `src/ui/components/`: Button, Input, Select, Card,
+  Table, Modal (portal/focus-trap/Escape), Drawer, ReasonModal (wired to
+  screens in PR3), Alert, Toast, Badge, Tabs, Pagination, Breadcrumbs,
+  Spinner, Loading/Empty/Error states — themed via `design-tokens.css`
+- Application shell: fixed sidebar with grouped role-aware nav (mobile
+  drawer), header with clinic switcher/notifications/user menu,
+  breadcrumbs; branded login page
+- Frontend test harness (vitest + Testing Library), 12 component tests;
+  7 new backend branding tests (188 total, both DBs)
+
 ### 2026-07-17 — Slice 9: Frontend (4 sub-PRs)
 - **9.1 Queue**: /queue polling at 10s with invoice status/balance per row;
   role-aware actions (Nurse triage, Doctor claim, Reception LWBS-with-reason);
