@@ -15,6 +15,16 @@ CLINIC_SETTING_DEFAULTS = {
         "temperature": {"low": 35.0, "high": 38.0},
         "spo2": {"low": 92, "high": 100},
     },
+    # White-label branding (slice 10): per-tenant look, one codebase.
+    # logo/favicon are URLs the clinic hosts (or data: URIs) — file upload
+    # infrastructure (S3/MinIO) is a separate pre-go-live item.
+    "branding": {
+        "logo_url": "",
+        "favicon_url": "",
+        "primary_color": "#1e293b",
+        "secondary_color": "#047857",
+        "tagline": "",
+    },
 }
 
 
@@ -40,6 +50,15 @@ class Clinic(AuditedModel, TimeStampedModel):
         if key not in CLINIC_SETTING_DEFAULTS:
             raise KeyError(f"Unknown clinic setting '{key}'")
         return self.settings.get(key, CLINIC_SETTING_DEFAULTS[key])
+
+    @property
+    def branding(self) -> dict:
+        """Branding with defaults filled in — a clinic row stores only its
+        overrides, and unknown keys are dropped so the payload shape is
+        stable for every consumer (frontend theme, print headers)."""
+        defaults = CLINIC_SETTING_DEFAULTS["branding"]
+        overrides = self.settings.get("branding", {})
+        return {key: overrides.get(key, default) for key, default in defaults.items()}
 
 
 class ClinicMembership(AuditedModel, TimeStampedModel):

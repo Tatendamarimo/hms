@@ -7,6 +7,8 @@ import PatientProfilePage from "../features/patients/PatientProfilePage";
 import PatientsPage from "../features/patients/PatientsPage";
 import QueuePage from "../features/queue/QueuePage";
 import VisitPage from "../features/visit/VisitPage";
+import { ThemeProvider } from "../theme/ThemeProvider";
+import { LoadingState } from "../ui/components";
 import type { Me } from "../api/types";
 import Shell from "./Shell";
 
@@ -34,49 +36,47 @@ export default function App() {
 
   if (me.isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-slate-400">
-        Loading…
-      </div>
+      <ThemeProvider>
+        <LoadingState message="Connecting…" />
+      </ThemeProvider>
     );
   }
 
   if (!me.data) {
-    return <LoginPage />;
+    return (
+      <ThemeProvider>
+        <LoginPage />
+      </ThemeProvider>
+    );
   }
 
   const user = me.data;
 
   return (
-    <Routes>
-      <Route element={<Shell me={user} />}>
-        <Route index element={<Home me={user} />} />
-        {canSeeQueue(user) && <Route path="queue" element={<QueuePage me={user} />} />}
-        {canSeeQueue(user) && <Route path="visit/:id" element={<VisitPage me={user} />} />}
-        {isFrontDesk(user) && (
-          <>
-            <Route path="patients" element={<PatientsPage me={user} />} />
-            <Route path="patients/:id" element={<PatientProfilePage me={user} />} />
-          </>
-        )}
-        {user.roles.includes("Cashier") && (
-          <Route path="billing/cashup" element={<CashUpPage />} />
-        )}
-        {(user.roles.includes("Cashier") || user.roles.includes("Admin")) && (
-          <Route path="billing/unpaid" element={<UnpaidPage />} />
-        )}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Route>
-    </Routes>
+    <ThemeProvider activeClinic={user.active_clinic}>
+      <Routes>
+        <Route element={<Shell me={user} />}>
+          {/* Role dashboards land in PR2; until then the queue is home. */}
+          <Route index element={<Navigate to={canSeeQueue(user) ? "/queue" : "/patients"} replace />} />
+          {canSeeQueue(user) && <Route path="queue" element={<QueuePage me={user} />} />}
+          {canSeeQueue(user) && <Route path="visit/:id" element={<VisitPage me={user} />} />}
+          {isFrontDesk(user) && (
+            <>
+              <Route path="patients" element={<PatientsPage me={user} />} />
+              <Route path="patients/:id" element={<PatientProfilePage me={user} />} />
+            </>
+          )}
+          {user.roles.includes("Cashier") && (
+            <Route path="billing/cashup" element={<CashUpPage />} />
+          )}
+          {(user.roles.includes("Cashier") || user.roles.includes("Admin")) && (
+            <Route path="billing/unpaid" element={<UnpaidPage />} />
+          )}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </ThemeProvider>
   );
 }
 
-function Home({ me }: { me: Me }) {
-  if (canSeeQueue(me)) {
-    return <Navigate to="/queue" replace />;
-  }
-  return (
-    <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-slate-500">
-      Nothing to show for your role yet.
-    </div>
-  );
-}
+

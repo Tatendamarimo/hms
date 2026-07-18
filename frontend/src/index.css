@@ -1,1 +1,63 @@
 @import "tailwindcss";
+@import "./ui/design-tokens.css";
+
+/*
+ * Base styles — applied globally. Design-token variables are resolved at
+ * runtime so white-label colours propagate everywhere automatically.
+ */
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--hms-font-family);
+  color: var(--hms-text);
+  background-color: var(--hms-bg);
+  line-height: var(--hms-leading-normal);
+}
+
+::selection {
+  background-color: rgba(var(--hms-primary-rgb), 0.15);
+}
+
+/* Tailwind v4 animation utilities used by Modal, Drawer, Toast */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes zoom-in-95 {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes slide-in-from-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes slide-in-from-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.animate-in {
+  animation-fill-mode: both;
+}
+.fade-in {
+  animation-name: fade-in;
+}
+.zoom-in-95 {
+  animation-name: zoom-in-95;
+}
+.slide-in-from-right {
+  animation-name: slide-in-from-right;
+}
+.slide-in-from-left {
+  animation-name: slide-in-from-left;
+}
+.duration-150 {
+  animation-duration: 150ms;
+}
+.duration-200 {
+  animation-duration: 200ms;
+}

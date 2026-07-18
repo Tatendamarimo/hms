@@ -1,10 +1,20 @@
+export interface Branding {
+  logo_url: string;
+  favicon_url: string;
+  primary_color: string;
+  secondary_color: string;
+  tagline: string;
+}
+
 export interface Clinic {
   id: number;
   name: string;
   code: string;
   address: string;
   phone: string;
+  branding?: Branding;
 }
+
 
 export type Role =
   | "Receptionist"

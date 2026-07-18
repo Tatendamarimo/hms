@@ -6,9 +6,12 @@
   <style>
     body { font-family: Georgia, "Times New Roman", serif; color: #111;
            max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
-    header.clinic { border-bottom: 2px solid #111; padding-bottom: .75rem;
-                    margin-bottom: 1.5rem; }
-    header.clinic h1 { margin: 0; font-size: 1.4rem; }
+    header.clinic { border-bottom: 2px solid {{ clinic.branding.primary_color }};
+                    padding-bottom: .75rem; margin-bottom: 1.5rem;
+                    display: flex; align-items: center; gap: 1rem; }
+    header.clinic img.logo { max-height: 56px; max-width: 160px; }
+    header.clinic h1 { margin: 0; font-size: 1.4rem;
+                       color: {{ clinic.branding.primary_color }}; }
     header.clinic p { margin: .15rem 0; font-size: .9rem; }
     h2.doc-title { font-size: 1.15rem; text-transform: uppercase;
                    letter-spacing: .05em; }
@@ -25,9 +28,14 @@
 </head>
 <body>
   <header class="clinic">
-    <h1>{{ clinic.name }}</h1>
-    {% if clinic.address %}<p>{{ clinic.address }}</p>{% endif %}
-    {% if clinic.phone %}<p>Tel: {{ clinic.phone }}</p>{% endif %}
+    {% if clinic.branding.logo_url %}
+    <img class="logo" src="{{ clinic.branding.logo_url }}" alt="">
+    {% endif %}
+    <div>
+      <h1>{{ clinic.name }}</h1>
+      {% if clinic.address %}<p>{{ clinic.address }}</p>{% endif %}
+      {% if clinic.phone %}<p>Tel: {{ clinic.phone }}</p>{% endif %}
+    </div>
   </header>
 
   <div class="no-print"><button onclick="window.print()">Print</button></div>
